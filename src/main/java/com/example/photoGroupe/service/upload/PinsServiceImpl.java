@@ -8,6 +8,7 @@ import com.example.photoGroupe.dto.pins.PinRequest;
 import com.example.photoGroupe.dto.pins.PinResponse;
 import com.example.photoGroupe.model.*;
 import com.example.photoGroupe.repo.*;
+import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,7 @@ public class PinsServiceImpl implements PinsService{
     private final PinLikeRepository likeRepository;
     private final CommentRepository commentRepository;
     private final CategoryRepository categoryRepository;
+    private final NotificationService  notificationService;
 
     private String[] uploadPinImage(MultipartFile file, Long userId) throws IOException {
         String publicId = "photogroupe/pins/user_" + userId + "_" + System.currentTimeMillis();
@@ -167,11 +169,24 @@ public class PinsServiceImpl implements PinsService{
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        boolean[] isLiking = {false};
+
         likeRepository.findByUserIdAndPinId(currentUserId, pinId)
                 .ifPresentOrElse(
                         likeRepository::delete,                        // already liked → unlike
-                        () -> likeRepository.save(new PinLike(user, pin)) // not liked → like
+                        () -> {
+                            likeRepository.save(new PinLike(user, pin)); // not liked → like
+                            isLiking[0] = true;                        }
                 );
+        if (isLiking[0] && !pin.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    pin.getUser(),   // ← pin.getAuthor() if that method exists, else pin.getUser()
+                    user,
+                    "LIKE",
+                    user.getFullName() + " liked your pin \"" + pin.getTitle() + "\"",
+                    "/pin/" + pin.getId()
+            );
+        }
 
         // Re-fetch to get updated counts
         return toResponse(pinRepository.findById(pinId).orElseThrow(), currentUserId);
@@ -186,6 +201,15 @@ public class PinsServiceImpl implements PinsService{
 
         Comment comment = new Comment(request.getText(), user, pin);
         commentRepository.save(comment);
+        if (!pin.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    pin.getUser(),
+                    user,
+                    "COMMENT",
+                    user.getFullName() + " commented on your pin",
+                    "/pin/" + pin.getId()
+            );
+        }
         return toCommentResponse(comment, currentUserId);
     }
 
@@ -280,13 +304,28 @@ public class PinsServiceImpl implements PinsService{
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        boolean isLiking;
         if (comment.getLikedBy().contains(user)) {
             comment.getLikedBy().remove(user);
+            isLiking = false; // unliking
         } else {
             comment.getLikedBy().add(user);
+            isLiking = true;  // liking
         }
 
         Comment saved = commentRepository.save(comment);
+
+        // Only notify on like, not unlike, and not self-like
+        if (isLiking && !comment.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    comment.getUser(),
+                    user,
+                    "COMMENT_LIKE",
+                    user.getFullName() + " liked your comment",
+                    "/pin/" + comment.getPin().getId()
+            );
+        }
+
         return toCommentResponse(saved, currentUserId);
     }
 
@@ -306,6 +345,15 @@ public class PinsServiceImpl implements PinsService{
 
         Comment reply = new Comment(request.getText(), user, pin, parent);
         Comment saved = commentRepository.save(reply);
+        if (!parent.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    parent.getUser(),
+                    user,
+                    "REPLY",
+                    user.getFullName() + " replied to your comment",
+                    "/pin/" + pin.getId()
+            );
+        }
         return toCommentResponse(saved, currentUserId);
     }
 
