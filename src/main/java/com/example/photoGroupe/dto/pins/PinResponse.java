@@ -22,6 +22,8 @@ public class PinResponse {
     private String authorRole;
     private String authorName;
 
+    private boolean suspended;
+    private String suspensionReason;
     // Counts
     private Integer likeCount;
     private Integer commentCount;
@@ -37,6 +39,11 @@ public class PinResponse {
     }
 
     private LocalDateTime createdAt;
+
+    // Add to PinResponse.java
+    private int     saveCount;
+    private int     shareCount;
+    private boolean savedByCurrentUser;
 
     // ─── Getters / Setters (all fields) ──────────────────────────────────
 
@@ -56,7 +63,35 @@ public class PinResponse {
     public Long   getCategoryId()                      { return categoryId; }
     public String getCategoryName()                    { return categoryName; }
     public String getCategorySlug()                    { return categorySlug; }
+    public boolean isSuspended()               { return suspended; }
+    public String getSuspensionReason()        { return suspensionReason; }
 
+    public int getSaveCount() {
+        return saveCount;
+    }
+
+    public void setSaveCount(int saveCount) {
+        this.saveCount = saveCount;
+    }
+
+    public int getShareCount() {
+        return shareCount;
+    }
+
+    public void setShareCount(int shareCount) {
+        this.shareCount = shareCount;
+    }
+
+    public boolean isSavedByCurrentUser() {
+        return savedByCurrentUser;
+    }
+
+    public void setSavedByCurrentUser(boolean savedByCurrentUser) {
+        this.savedByCurrentUser = savedByCurrentUser;
+    }
+
+    public void setSuspended(boolean s)         { this.suspended = s; }
+    public void setSuspensionReason(String r)   { this.suspensionReason = r; }
     public void   setCategoryId(Long categoryId)       { this.categoryId = categoryId; }
     public void   setCategoryName(String categoryName) { this.categoryName = categoryName; }
     public void   setCategorySlug(String categorySlug) { this.categorySlug = categorySlug; }

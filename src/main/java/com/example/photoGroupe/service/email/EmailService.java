@@ -21,4 +21,18 @@ public class EmailService {
 
         mailSender.send(message);
     }
+    public void sendOtpEmail(String toEmail, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Password Reset OTP - PhotoGroupe");
+        message.setText(
+                "Hello,\n\n" +
+                        "Your OTP for password reset is:\n\n" +
+                        "  " + otp + "\n\n" +
+                        "This OTP is valid for 10 minutes.\n" +
+                        "If you did not request this, please ignore this email.\n\n" +
+                        "— PhotoGroupe Team"
+        );
+        mailSender.send(message);
+    }
 }

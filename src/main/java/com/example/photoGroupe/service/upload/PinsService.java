@@ -1,10 +1,8 @@
 package com.example.photoGroupe.service.upload;
 
-import com.example.photoGroupe.dto.pins.CommentRequest;
-import com.example.photoGroupe.dto.pins.CommentResponse;
-import com.example.photoGroupe.dto.pins.PinRequest;
-import com.example.photoGroupe.dto.pins.PinResponse;
+import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.Role;
+import com.example.photoGroupe.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,4 +41,16 @@ public interface PinsService {
     CommentResponse toggleCommentLike(Long commentId, Long currentUserId);
 
     CommentResponse replyToComment(Long pinId, Long parentCommentId, CommentRequest request, Long currentUserId);
+
+    PinResponse suspendPin(Long pinId, String reason, User admin);
+
+    PinResponse unsuspendPin(Long pinId, User admin);
+
+    SharePinResponse sharePin(Long pinId, Long currentUserId);
+
+    SavePinResponse toggleSavePin(Long pinId, Long currentUserId);
+
+    Page<PinResponse> getSavedPins(int page, int size, Long currentUserId);
+
+    long getShareCount(Long pinId);
 }

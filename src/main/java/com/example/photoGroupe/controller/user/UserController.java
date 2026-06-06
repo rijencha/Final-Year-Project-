@@ -4,8 +4,12 @@ import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.dto.detail.UserSummary;
+import com.example.photoGroupe.dto.report.CreateReportRequest;
+import com.example.photoGroupe.dto.report.ReportResponse;
 import com.example.photoGroupe.exception.UserNotFoundException;
+import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.report.ReportService;
 import com.example.photoGroupe.service.user.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +29,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final ReportService  reportService;
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -86,6 +91,17 @@ public class UserController {
         } catch (IOException e) {
             return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/{id}/report")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ReportResponse> reportUser(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateReportRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        User reporter = userDetails.getUser();
+        return ResponseEntity.ok(reportService.createReport(id, request, reporter));
     }
 
 }

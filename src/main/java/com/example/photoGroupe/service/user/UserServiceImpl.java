@@ -7,6 +7,7 @@ import com.example.photoGroupe.dto.detail.UserSummary;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.VerificationStatus;
+import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService{
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final PinRepository pinRepository;
 
     @Override
     public UserSummary getPublicUserById(Long id) {
@@ -159,6 +161,7 @@ public class UserServiceImpl implements UserService{
         return UserSummary.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .username(user.getActualUsername())
                 .fullName(user.getFullName())
                 .bio(user.getBio())
@@ -173,6 +176,8 @@ public class UserServiceImpl implements UserService{
                 .accountNonLocked(user.isAccountNonLocked())
                 .profilePicture(user.getProfilePicture())
                 .deleted(user.isDeleted())
+                .joinedAt(user.getCreatedAt())
+                .pinCount(pinRepository.countByUserId(user.getId()))
                 .build();
     }
 
@@ -181,13 +186,16 @@ public class UserServiceImpl implements UserService{
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .username(user.getActualUsername())
+                .phoneNumber(user.getPhoneNumber())
                 .bio(user.getBio())
                 .location(user.getLocation())
                 .profilePicture(user.getProfilePicture())
+                .pinCount(pinRepository.countByUserId(user.getId()))
                 .verified(user.isVerified())
                 .enable(user.isEnabled())
                 .accountNonLocked(user.isAccountNonLocked())
                 .deleted(user.isDeleted())
+                .joinedAt(user.getCreatedAt())
                 .build();
     }
 }

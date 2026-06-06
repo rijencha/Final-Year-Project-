@@ -20,4 +20,7 @@ public interface PinRepository extends JpaRepository<Pin,Long> {
 
     @Query("SELECT p FROM Pin p WHERE p.category.id = :categoryId AND p.deleted = false ORDER BY p.createdAt DESC")
     Page<Pin> findByCategoryIdAndDeletedFalse(@Param("categoryId") Long categoryId, Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM Pin p WHERE p.user.id = :userId")
+    long countByUserId(@Param("userId") Long userId);
 }

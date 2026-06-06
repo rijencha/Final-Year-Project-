@@ -1,14 +1,15 @@
 package com.example.photoGroupe.controller;
 
-import com.example.photoGroupe.dto.auth.AuthResponse;
-import com.example.photoGroupe.dto.auth.LoginRequest;
-import com.example.photoGroupe.dto.auth.RegisterRequest;
+import com.example.photoGroupe.dto.auth.*;
+import com.example.photoGroupe.service.auth.AuthService;
 import com.example.photoGroupe.service.auth.AuthServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -50,5 +51,32 @@ public class Authentication {
     public ResponseEntity<String> logout(@RequestParam String refreshToken) {
         authService.logout(refreshToken);
         return ResponseEntity.ok("Logged out successfully");
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        String message = authService.sendOtp(request.getEmail());
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    // POST /api/auth/verify-otp
+    @PostMapping("/verify-otp")
+    public ResponseEntity<Map<String, String>> verifyOtp(
+            @Valid @RequestBody VerifyOtpRequest request) {
+
+        String message = authService.verifyOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    // POST /api/auth/reset-password
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        String message = authService.resetPassword(
+                request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ResponseEntity.ok(Map.of("message", message));
     }
 }

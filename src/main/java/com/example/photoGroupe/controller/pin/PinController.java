@@ -1,9 +1,6 @@
 package com.example.photoGroupe.controller.pin;
 
-import com.example.photoGroupe.dto.pins.CommentRequest;
-import com.example.photoGroupe.dto.pins.CommentResponse;
-import com.example.photoGroupe.dto.pins.PinRequest;
-import com.example.photoGroupe.dto.pins.PinResponse;
+import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.upload.PinsService;
@@ -12,11 +9,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users/pins")
@@ -236,5 +235,57 @@ public class PinController {
             @RequestBody CommentRequest request,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ResponseEntity.ok(pinsService.replyToComment(pinId, parentCommentId, request, currentUser.getId()));
+    }
+
+    @PutMapping("/{pinId}/suspend")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PinResponse> suspendPin(
+            @PathVariable Long pinId,
+            @RequestBody PinSuspensionRequest req,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(pinsService.suspendPin(pinId, req.getReason(), currentUser.getUser()));
+    }
+
+    @PutMapping("/{pinId}/unsuspend")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PinResponse> unsuspendPin(
+            @PathVariable Long pinId,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        return ResponseEntity.ok(pinsService.unsuspendPin(pinId, currentUser.getUser()));
+    }
+    // POST /api/pins/{pinId}/share
+    @PostMapping("/{pinId}/share")
+    public ResponseEntity<SharePinResponse> sharePin(
+            @PathVariable Long pinId,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        return ResponseEntity.ok(pinsService.sharePin(pinId, currentUser.getId()));
+    }
+
+    // POST /api/pins/{pinId}/save  (toggle)
+    @PostMapping("/{pinId}/save")
+    public ResponseEntity<SavePinResponse> toggleSavePin(
+            @PathVariable Long pinId,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        return ResponseEntity.ok(pinsService.toggleSavePin(pinId, currentUser.getId()));
+    }
+
+    // GET /api/pins/saved
+    @GetMapping("/saved")
+    public ResponseEntity<Page<PinResponse>> getSavedPins(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        return ResponseEntity.ok(pinsService.getSavedPins(page, size, currentUser.getId()));
+    }
+
+    // GET /api/pins/{pinId}/shares/count
+    @GetMapping("/{pinId}/shares/count")
+    public ResponseEntity<Map<String, Long>> getShareCount(@PathVariable Long pinId) {
+        return ResponseEntity.ok(Map.of("shareCount", pinsService.getShareCount(pinId)));
     }
 }

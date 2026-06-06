@@ -5,15 +5,20 @@ import com.example.photoGroupe.dto.auth.LoginRequest;
 import com.example.photoGroupe.dto.auth.RegisterRequest;
 import com.example.photoGroupe.dto.detail.UserSummary;
 import com.example.photoGroupe.model.*;
+import com.example.photoGroupe.repo.OtpTokenRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.security.JwtService;
 import com.example.photoGroupe.security.RefreshTokenService;
+import com.example.photoGroupe.service.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,12 @@ public class AuthServiceImpl implements AuthService{
     private final JwtService jwtService;
 
     private final RefreshTokenService refreshTokenService;
+
+    private final OtpTokenRepository otpTokenRepository;
+
+    private final EmailService emailService;
+
+    private static final int  OTP_EXPIRY_MINUTES = 1;
 
 
     //    private final JwtService jwtService;
@@ -150,6 +161,52 @@ public class AuthServiceImpl implements AuthService{
         refreshTokenService.revokeToken(refreshTokenValue);
     }
 
+    @Override
+    public String sendOtp(String email) {
+        if (!userRepository.existsByEmail(email)) {
+            return "If this email exists, an OTP has been sent.";
+        }
+
+        // Invalidate any previous OTPs for this email
+        otpTokenRepository.deleteAllByEmail(email);
+
+        String otp = generateOtp();
+
+        OtpToken otpToken = new OtpToken(
+                email,
+                otp,
+                LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES)
+        );
+        otpTokenRepository.save(otpToken);
+
+        emailService.sendOtpEmail(email, otp);
+
+        return "If this email exists, an OTP has been sent.";
+    }
+
+    @Override
+    public String verifyOtp(String email, String otp) {
+        validateOtp(email, otp); // throws if invalid
+        return "OTP is valid. You may now reset your password.";
+    }
+
+    @Override
+    public String resetPassword(String email, String otp, String newPassword) {
+        OtpToken otpToken = validateOtp(email, otp);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Mark OTP as used so it can't be replayed
+        otpToken.setUsed(true);
+        otpTokenRepository.save(otpToken);
+
+        return "Password reset successfully.";
+    }
+
     // ─── Helper ───────────────────────────────────────────────────────────
 
     private AuthResponse buildAuthResponse(User user, String accessToken,
@@ -176,5 +233,26 @@ public class AuthServiceImpl implements AuthService{
                 .user(userSummary)      // ← nested
                 .message(message)
                 .build();
+    }
+    private OtpToken validateOtp(String email, String otp) {
+        OtpToken otpToken = otpTokenRepository
+                .findTopByEmailAndUsedFalseOrderByCreatedAtDesc(email)
+                .orElseThrow(() -> new RuntimeException("No active OTP found for this email"));
+
+        if (LocalDateTime.now().isAfter(otpToken.getExpiresAt())) {
+            throw new RuntimeException("OTP has expired. Please request a new one.");
+        }
+
+        if (!otpToken.getOtp().equals(otp)) {
+            throw new RuntimeException("Invalid OTP.");
+        }
+
+        return otpToken;
+    }
+
+    private String generateOtp() {
+        SecureRandom random = new SecureRandom();
+        int otp = 100_000 + random.nextInt(900_000); // always 6 digits
+        return String.valueOf(otp);
     }
 }

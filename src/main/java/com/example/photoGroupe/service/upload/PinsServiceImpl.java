@@ -2,15 +2,15 @@ package com.example.photoGroupe.service.upload;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.example.photoGroupe.dto.pins.CommentRequest;
-import com.example.photoGroupe.dto.pins.CommentResponse;
-import com.example.photoGroupe.dto.pins.PinRequest;
-import com.example.photoGroupe.dto.pins.PinResponse;
+import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.*;
+import com.example.photoGroupe.model.pins.PinShare;
+import com.example.photoGroupe.model.pins.SavedPin;
 import com.example.photoGroupe.repo.*;
 import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.service.user.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,11 @@ public class PinsServiceImpl implements PinsService{
     private final CommentRepository commentRepository;
     private final CategoryRepository categoryRepository;
     private final NotificationService  notificationService;
+    private final SavedPinRepository savedPinRepository;
+    private final PinShareRepository pinShareRepository;
+
+    @Value("${app.base-url}")          // e.g. https://yourapp.com  (set in application.properties)
+    private String baseUrl;
 
     private String[] uploadPinImage(MultipartFile file, Long userId) throws IOException {
         String publicId = "photogroupe/pins/user_" + userId + "_" + System.currentTimeMillis();
@@ -357,13 +363,149 @@ public class PinsServiceImpl implements PinsService{
         return toCommentResponse(saved, currentUserId);
     }
 
+    @Override
+    @Transactional
+    public PinResponse suspendPin(Long pinId, String reason, User admin) {
+        Pin pin = pinRepository.findById(pinId)
+                .orElseThrow(() -> new RuntimeException("Pin not found"));
+
+        if (pin.isSuspended())
+            throw new RuntimeException("Pin is already suspended");
+
+        pin.setSuspended(true);
+        pin.setSuspensionReason(reason);
+        pin.setSuspendedAt(LocalDateTime.now());
+        pin.setSuspendedBy(admin);
+        pinRepository.save(pin);
+
+        // Notify pin owner
+        notificationService.create(
+                pin.getUser(),
+                admin,
+                "PIN_SUSPENDED",
+                "Your pin \"" + pin.getTitle() + "\" has been suspended. Reason: " + reason,
+                "/pin/" + pin.getId()
+        );
+
+        return toResponse(pin, admin.getId());
+    }
+
+    @Override
+    @Transactional
+    public PinResponse unsuspendPin(Long pinId, User admin) {
+        Pin pin = pinRepository.findById(pinId)
+                .orElseThrow(() -> new RuntimeException("Pin not found"));
+
+        if (!pin.isSuspended())
+            throw new RuntimeException("Pin is not suspended");
+
+        pin.setSuspended(false);
+        pin.setSuspensionReason(null);
+        pin.setSuspendedAt(null);
+        pin.setSuspendedBy(null);
+        pinRepository.save(pin);
+
+        // Notify pin owner
+        notificationService.create(
+                pin.getUser(),
+                admin,
+                "PIN_UNSUSPENDED",
+                "Your pin \"" + pin.getTitle() + "\" suspension has been lifted",
+                "/pin/" + pin.getId()
+        );
+
+        return toResponse(pin, admin.getId());
+    }
+
+    // ─── Share Pin ────────────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public SharePinResponse sharePin(Long pinId, Long currentUserId) {
+        Pin pin = findActivePin(pinId);
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String shareLink = baseUrl + "/pin/" + pinId;
+
+        PinShare share = new PinShare(pin, user, shareLink);
+        pinShareRepository.save(share);
+
+        // Notify pin owner (skip self-share)
+        if (!pin.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    pin.getUser(),
+                    user,
+                    "SHARE",
+                    user.getFullName() + " shared your pin \"" + pin.getTitle() + "\"",
+                    "/pin/" + pinId
+            );
+        }
+
+        return SharePinResponse.builder()
+                .pinId(pinId)
+                .shareLink(shareLink)
+                .totalShares(pinShareRepository.countByPinId(pinId))
+                .build();
+    }
+
+// ─── Save / Unsave Pin (Bookmark toggle) ─────────────────────────────────────
+
+    @Override
+    @Transactional
+    public SavePinResponse toggleSavePin(Long pinId, Long currentUserId) {
+        Pin pin = findActivePin(pinId);
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean saved;
+        savedPinRepository.findByUserIdAndPinId(currentUserId, pinId)
+                .ifPresentOrElse(
+                        savedPin -> savedPinRepository.delete(savedPin),   // already saved → unsave
+                        () -> savedPinRepository.save(new SavedPin(user, pin)) // not saved → save
+                );
+
+        // Re-check state after toggle
+        saved = savedPinRepository.existsByUserIdAndPinId(currentUserId, pinId);
+
+        return SavePinResponse.builder()
+                .pinId(pinId)
+                .saved(saved)
+                .totalSaves(savedPinRepository.countByPinId(pinId))
+                .build();
+    }
+
+// ─── Get Saved Pins ───────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PinResponse> getSavedPins(int page, int size, Long currentUserId) {
+        Pageable pageable = PageRequest.of(page, size);
+        return savedPinRepository
+                .findByUserIdOrderBySavedAtDesc(currentUserId, pageable)
+                .map(savedPin -> toResponse(savedPin.getPin(), currentUserId));
+    }
+
+// ─── Get Share Count ──────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public long getShareCount(Long pinId) {
+        findActivePin(pinId);  // validates pin exists and is not deleted/suspended
+        return pinShareRepository.countByPinId(pinId);
+    }
+
 
     // ─── Private helpers ──────────────────────────────────────────────────
 
     private Pin findActivePin(Long pinId) {
-        return pinRepository.findById(pinId)
+        Pin pin = pinRepository.findById(pinId)
                 .filter(p -> !p.isDeleted())
                 .orElseThrow(() -> new RuntimeException("Pin not found"));
+        if (pin.isSuspended())
+            throw new RuntimeException("This pin has been suspended. Reason: " + pin.getSuspensionReason());
+
+        return pin;
     }
 
     private void assertOwner(Pin pin, Long userId) {
@@ -401,6 +543,14 @@ public class PinsServiceImpl implements PinsService{
         r.setLikedByCurrentUser(
                 currentUserId != null &&
                         likeRepository.existsByUserIdAndPinId(currentUserId, pin.getId())
+        );
+        r.setSuspended(pin.isSuspended());
+        r.setSuspensionReason(pin.isSuspended() ? pin.getSuspensionReason() : null);
+        r.setSaveCount((int) savedPinRepository.countByPinId(pin.getId()));
+        r.setShareCount((int) pinShareRepository.countByPinId(pin.getId()));
+        r.setSavedByCurrentUser(
+                currentUserId != null &&
+                        savedPinRepository.existsByUserIdAndPinId(currentUserId, pin.getId())
         );
 
         return r;

@@ -3,6 +3,8 @@ package com.example.photoGroupe.dto.detail;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 public class UserSummary {
@@ -10,6 +12,7 @@ public class UserSummary {
     private String email;
     private String username;
     private String fullName;
+    private String phoneNumber;
     private String role;
     private String bio;
     private boolean enabled;
@@ -18,4 +21,6 @@ public class UserSummary {
     private boolean accountNonLocked;   // ✅ add (ban/suspend)
     private boolean deleted;
     private String profilePicture;
+    private LocalDateTime joinedAt;
+    private long pinCount;
 }

@@ -8,8 +8,10 @@ import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.VerificationStatus;
 import com.example.photoGroupe.repo.AdminRepo;
+import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +29,8 @@ public class AdminServiceImpl implements AdminService {
     private final UserRepository userRepository;
     private final AdminRepo adminRepo;
     private final PasswordEncoder passwordEncoder;
+    private final PinRepository pinRepository;
+    private final NotificationService notificationService;
 
     // ─── Admin ────────────────────────────────────────────────────────────
 
@@ -166,67 +170,111 @@ public class AdminServiceImpl implements AdminService {
                 .toList();
     }
 
+//    @Override
+//    public PhotographerVerificationResponse updateVerificationStatus(Long id, VerificationStatus newStatus) {
+//        User user = userRepository.findByIdAndDeletedFalse(id)
+//                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+//
+//        if (user.getRole() != Role.PHOTOGRAPHER)
+//            throw new RuntimeException("User is not a photographer");
+//
+//        if (user.getVerificationStatus() != VerificationStatus.PENDING)
+//            throw new RuntimeException("Photographer is already " + user.getVerificationStatus().name());
+//
+//        user.setVerificationStatus(newStatus);
+//        user.setVerified(newStatus == VerificationStatus.APPROVED);
+//        userRepository.save(user);
+//
+//        return toVerificationResponse(user);
+//    }
+
+    // for approve
     @Override
-    public PhotographerVerificationResponse updateVerificationStatus(Long id, VerificationStatus newStatus) {
+    public PhotographerVerificationResponse approvePhotographer(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
 
-        if (user.getRole() != Role.PHOTOGRAPHER)
+        if (user.getRole() != Role.PHOTOGRAPHER) {
             throw new RuntimeException("User is not a photographer");
+        }
 
-        if (user.getVerificationStatus() != VerificationStatus.PENDING)
-            throw new RuntimeException("Photographer is already " + user.getVerificationStatus().name());
+        if (user.getVerificationStatus() != VerificationStatus.PENDING) {
+            throw new RuntimeException("Photographer is already " +
+                    user.getVerificationStatus().name());
+        }
 
-        user.setVerificationStatus(newStatus);
-        user.setVerified(newStatus == VerificationStatus.APPROVED);
+        user.setVerified(true);
+        user.setVerificationStatus(VerificationStatus.APPROVED);
         userRepository.save(user);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        notificationService.create(
+                user,
+                admin,
+                "VERIFICATION_APPROVED",
+                "Congratulations! Your photographer account has been approved.",
+                "/dashboard"
+        );
 
         return toVerificationResponse(user);
     }
 
-    // for approve
-//    @Override
-//    public PhotographerVerificationResponse approvePhotographer(Long id) {
-//        User user = userRepository.findByIdAndDeletedFalse(id)
-//                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-//
-//        if (user.getRole() != Role.PHOTOGRAPHER) {
-//            throw new RuntimeException("User is not a photographer");
-//        }
-//
-//        if (user.getVerificationStatus() != VerificationStatus.PENDING) {
-//            throw new RuntimeException("Photographer is already " +
-//                    user.getVerificationStatus().name());
-//        }
-//
-//        user.setVerified(true);
-//        user.setVerificationStatus(VerificationStatus.APPROVED);
-//        userRepository.save(user);
-//
-//        return toVerificationResponse(user);
-//    }
-//
-//    // for reject
-//    @Override
-//    public PhotographerVerificationResponse rejectPhotographer(Long id) {
-//        User user = userRepository.findByIdAndDeletedFalse(id)
-//                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-//
-//        if (user.getRole() != Role.PHOTOGRAPHER) {
-//            throw new RuntimeException("User is not a photographer");
-//        }
-//
-//        if (user.getVerificationStatus() != VerificationStatus.PENDING) {
-//            throw new RuntimeException("Photographer is already " +
-//                    user.getVerificationStatus().name());
-//        }
-//
-//        user.setVerified(false);
-//        user.setVerificationStatus(VerificationStatus.REJECTED);
-//        userRepository.save(user);
-//
-//        return toVerificationResponse(user);
-//    }
+    // for reject
+    @Override
+    public PhotographerVerificationResponse rejectPhotographer(Long id) {
+        User user = userRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        if (user.getRole() != Role.PHOTOGRAPHER) {
+            throw new RuntimeException("User is not a photographer");
+        }
+
+        if (user.getVerificationStatus() == null ||
+                user.getVerificationStatus() != VerificationStatus.PENDING) {
+            throw new RuntimeException("Photographer is already " +
+                    user.getVerificationStatus().name());
+        }
+
+        user.setVerified(false);
+        user.setVerificationStatus(VerificationStatus.REJECTED);
+        userRepository.save(user);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        notificationService.create(
+                user,
+                admin,
+                "VERIFICATION_REJECTED",
+                "Your photographer verification request has been rejected. Please contact support for more information.",
+                "/profile"
+        );
+
+        return toVerificationResponse(user);
+    }
+
+    @Override
+    public List<PhotographerVerificationResponse> getAllPhotographers() {
+        return adminRepo
+                .findByRoleAndDeletedFalse(Role.PHOTOGRAPHER)
+                .stream()
+                .map(this::toVerificationResponse)
+                .toList();
+    }
+
+    @Override
+    public PhotographerVerificationResponse getPhotographerById(Long id) {
+        User user = userRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        if (user.getRole() != Role.PHOTOGRAPHER) {
+            throw new RuntimeException("User is not a photographer");
+        }
+
+        return toVerificationResponse(user);
+    }
 
     // ─── Helper ───────────────────────────────────────────────────────────
 
@@ -234,9 +282,12 @@ public class AdminServiceImpl implements AdminService {
         return UserSummary.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .username(user.getActualUsername())
                 .fullName(user.getFullName())
                 .bio(user.getBio())
+                .pinCount(pinRepository.countByUserId(user.getId()))
+
                 .role(user.getRole().name())
                 .verified(user.isVerified())
                 .verificationStatus(
@@ -248,6 +299,7 @@ public class AdminServiceImpl implements AdminService {
                 .accountNonLocked(user.isAccountNonLocked())
                 .profilePicture(user.getProfilePicture())
                 .deleted(user.isDeleted())
+                .joinedAt(user.getCreatedAt())
                 .build();
     }
 
@@ -255,12 +307,16 @@ public class AdminServiceImpl implements AdminService {
         return PhotographerVerificationResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
+                .profilePicture(user.getProfilePicture())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .username(user.getActualUsername())
                 .portfolioLink(user.getPortfolioLink())
+                .pinCount(pinRepository.countByUserId(user.getId()))
                 .bio(user.getBio())
                 .location(user.getLocation())
-                .verificationStatus(user.getVerificationStatus().name())
+                .verificationStatus(user.getVerificationStatus() != null ? user.getVerificationStatus().name() : null)
+                .joinedAt(user.getCreatedAt())
                 .build();
     }
 

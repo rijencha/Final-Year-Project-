@@ -3,6 +3,8 @@ package com.example.photoGroupe.dto.photographer;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 public class PhotographerDetail {
@@ -16,4 +18,7 @@ public class PhotographerDetail {
     private boolean enable;
     private boolean accountNonLocked;   // ✅ add (ban/suspend)
     private boolean deleted;
+    private LocalDateTime joinedAt;
+    private String phoneNumber;
+    private long pinCount;
 }

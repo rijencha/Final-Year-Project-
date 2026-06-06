@@ -74,25 +74,36 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getPendingPhotographers());
     }
 
-//    @PutMapping("/photographers/{id}/approve")
-//    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-//    public ResponseEntity<PhotographerVerificationResponse> approvePhotographer(
-//            @PathVariable Long id) {
-//        return ResponseEntity.ok(adminService.approvePhotographer(id));
-//    }
-//
-//    @PutMapping("/photographers/{id}/reject")
-//    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-//    public ResponseEntity<PhotographerVerificationResponse> rejectPhotographer(
-//            @PathVariable Long id) {
-//        return ResponseEntity.ok(adminService.rejectPhotographer(id));
-//    }
+    @PutMapping("/photographers/{id}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PhotographerVerificationResponse> approvePhotographer(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.approvePhotographer(id));
+    }
+
+    @PutMapping("/photographers/{id}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<PhotographerVerificationResponse> rejectPhotographer(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.rejectPhotographer(id));
+    }
 
 // one endpoint for approval and reject:
-    @PatchMapping("/{id}/verification")
-    public ResponseEntity<PhotographerVerificationResponse> updateVerification(
-            @PathVariable Long id,
-            @RequestParam VerificationStatus status) {
-        return ResponseEntity.ok(adminService.updateVerificationStatus(id, status));
+//    @PatchMapping("/{id}/verification")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+//    public ResponseEntity<PhotographerVerificationResponse> updateVerification(
+//            @PathVariable Long id,
+//            @RequestParam VerificationStatus status) {
+//        return ResponseEntity.ok(adminService.updateVerificationStatus(id, status));
+//    }
+
+    @GetMapping("/photographers")
+    public ResponseEntity<List<PhotographerVerificationResponse>> getAllPhotographers() {
+        return ResponseEntity.ok(adminService.getAllPhotographers());
+    }
+
+    @GetMapping("/photographers/{id}")
+    public ResponseEntity<PhotographerVerificationResponse> getPhotographerById(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getPhotographerById(id));
     }
 }

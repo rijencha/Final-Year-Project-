@@ -4,6 +4,8 @@ package com.example.photoGroupe.dto.photographer;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 public class PhotographerVerificationResponse {
@@ -15,4 +17,8 @@ public class PhotographerVerificationResponse {
     private String bio;
     private String location;
     private String verificationStatus;
+    private LocalDateTime joinedAt;
+    private String phoneNumber;
+    private String profilePicture;
+    private long pinCount;
 }

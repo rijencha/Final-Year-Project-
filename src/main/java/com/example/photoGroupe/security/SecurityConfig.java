@@ -46,12 +46,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // ── Public endpoints (FIRST) ──────────────────────────────
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()  // ← allow preflight
+                        .requestMatchers("/ws/**").permitAll()   // WebSocket handshake
                                 .requestMatchers("/api/test/**").permitAll()
 
                         .requestMatchers("/auth/**").permitAll()                  // ← already there
                         .requestMatchers("/auth/login").permitAll()               // ← add explicit
                         .requestMatchers("/auth/register").permitAll()            // ← add explicit
                         .requestMatchers("/auth/refresh").permitAll()             // ← add explicit
+                        .requestMatchers(
+                                "/auth/forgot-password",   // ← add
+                                "/auth/verify-otp",        // ← add
+                                "/auth/reset-password"     // ← add
+                        ).permitAll()
 
                         .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers("/login/oauth2/**").permitAll()

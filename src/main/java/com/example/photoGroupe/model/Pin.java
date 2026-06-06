@@ -33,6 +33,20 @@ public class Pin {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    // Suspend or band pins
+    @Column(name = "is_suspended", nullable = false)
+    private boolean suspended = false;
+
+    @Column(name = "suspension_reason")
+    private String suspensionReason;
+
+    @Column(name = "suspended_at")
+    private LocalDateTime suspendedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "suspended_by")
+    private User suspendedBy;
+
     // ─── Relationships ────────────────────────────────────────────────────
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -100,7 +114,16 @@ public class Pin {
     public LocalDateTime getUpdatedAt()     { return updatedAt; }
     public boolean isDeleted()              { return deleted; }
     public Category getCategory()                  { return category; }
+    public boolean isSuspended()            { return suspended; }
+    public String getSuspensionReason()     { return suspensionReason; }
+    public LocalDateTime getSuspendedAt()   { return suspendedAt; }
+    public User getSuspendedBy()            { return suspendedBy; }
 
+    // Setters
+    public void setSuspended(boolean s)             { this.suspended = s; }
+    public void setSuspensionReason(String r)       { this.suspensionReason = r; }
+    public void setSuspendedAt(LocalDateTime t)     { this.suspendedAt = t; }
+    public void setSuspendedBy(User u)              { this.suspendedBy = u; }
     public void setCategory(Category category)     { this.category = category; }
     public void setImageUrl(String imageUrl)        { this.imageUrl = imageUrl; }
     public void setPublicId(String publicId)         { this.publicId = publicId; }

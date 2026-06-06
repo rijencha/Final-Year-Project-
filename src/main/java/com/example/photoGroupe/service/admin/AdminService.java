@@ -16,5 +16,9 @@ public interface AdminService {
     List<UserSummary> getDeletedUsers();
     UserSummary createAdmin(CreateAdminRequest request);
     List<PhotographerVerificationResponse> getPendingPhotographers();
-    PhotographerVerificationResponse updateVerificationStatus(Long id, VerificationStatus newStatus);
+//    PhotographerVerificationResponse updateVerificationStatus(Long id, VerificationStatus newStatus);
+    PhotographerVerificationResponse approvePhotographer(Long id);
+    PhotographerVerificationResponse rejectPhotographer(Long id);
+    List<PhotographerVerificationResponse> getAllPhotographers();
+    PhotographerVerificationResponse getPhotographerById(Long id);
 }
