@@ -32,6 +32,9 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String username;
 
+    @Column(name = "interests")
+    private String interests;
+
     // ─── OAUTH ─────────────────────────────────────────────────────────────
     @Enumerated(EnumType.STRING)
     @Column(name = "oauth_provider", nullable = false)
@@ -64,6 +67,9 @@ public class User implements UserDetails {
      * Photographer-specific: set to true once Admin approves verification.
      * Always false for USER, ADMIN, SUPER_ADMIN.
      */
+    @Column(name = "years_of_experience")
+    private Integer yearsOfExperience;
+
     @Column(name = "portfolio_link")
     private String portfolioLink;
 
@@ -190,10 +196,13 @@ public class User implements UserDetails {
     public String getOauthId() {
         return oauthId;
     }
+    public String getInterests() { return interests; }
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
 
-
+    // setter
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
 // ─── Setters ──────────────────────────────────────────────────────────
-
+    public void setInterests(String interests) { this.interests = interests; }
     public void setId(Long id)                              { this.id = id; }
     public void setFullName(String fullName)                { this.fullName = fullName; }
     public void setEmail(String email)                      { this.email = email; }

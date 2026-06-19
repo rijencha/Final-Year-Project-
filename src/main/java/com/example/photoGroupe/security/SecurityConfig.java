@@ -65,6 +65,10 @@ public class SecurityConfig {
                         // ── Role-based endpoints (MIDDLE) ─────────────────────────
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/photographer/**").hasAnyRole("PHOTOGRAPHER", "ADMIN", "SUPER_ADMIN")
+
+                        .requestMatchers("/api/users/esewa/success").permitAll()
+                        .requestMatchers("/api/users/esewa/failure").permitAll()
+
                         .requestMatchers("/api/users/**").authenticated()
 
                         // ── Catch-all (ALWAYS LAST) ───────────────────────────────

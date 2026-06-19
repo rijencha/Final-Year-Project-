@@ -2,7 +2,9 @@ package com.example.photoGroupe.controller;
 
 import com.example.photoGroupe.dto.category.CategoryRequest;
 import com.example.photoGroupe.dto.category.CategoryResponse;
+import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.service.category.CategoryService;
+import com.example.photoGroupe.service.photographer.PhotographerProfileService;
 import com.example.photoGroupe.service.upload.PinsService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,15 +17,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users/categories")
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final PhotographerProfileService photographerProfileService;
 
-    public CategoryController(CategoryService categoryService) {
+
+    public CategoryController(CategoryService categoryService,
+                              PhotographerProfileService photographerProfileService) {
         this.categoryService = categoryService;
+        this.photographerProfileService = photographerProfileService;  // ← now initialized
     }
 
     @GetMapping
@@ -111,4 +118,14 @@ public class CategoryController {
         categoryService.hardDelete(id);
         return ResponseEntity.noContent().build();
     }
+
+    // Change the import and method signature
+    @GetMapping("/photographers")
+    public ResponseEntity<List<PhotographerDetail>> getPhotographersByCategory(
+            @RequestParam String keyword) {
+        return ResponseEntity.ok(
+                photographerProfileService.getPhotographersByCategory(keyword)
+        );
+    }
+
 }

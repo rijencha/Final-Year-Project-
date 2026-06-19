@@ -2,13 +2,17 @@ package com.example.photoGroupe.controller.user;
 
 import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
+import com.example.photoGroupe.dto.eventandbid.SpecializationRequest;
+import com.example.photoGroupe.dto.eventandbid.SpecializationResponse;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.dto.detail.UserSummary;
 import com.example.photoGroupe.dto.report.CreateReportRequest;
 import com.example.photoGroupe.dto.report.ReportResponse;
 import com.example.photoGroupe.exception.UserNotFoundException;
 import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.model.event.EventType;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.photographer.PhotographerProfileService;
 import com.example.photoGroupe.service.report.ReportService;
 import com.example.photoGroupe.service.user.UserService;
 import jakarta.validation.Valid;
@@ -30,6 +34,8 @@ public class UserController {
 
     private final UserService userService;
     private final ReportService  reportService;
+    private final PhotographerProfileService service;
+
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -58,6 +64,12 @@ public class UserController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<PhotographerDetail>> getAllPhotographers() {
         return ResponseEntity.ok(userService.getAllPhotographers());
+    }
+
+    @GetMapping("/photographers/top")
+    public ResponseEntity<List<PhotographerDetail>> getTopPhotographers(
+            @RequestParam(defaultValue = "8") int limit) {
+        return ResponseEntity.ok(userService.getTopPhotographers(limit));
     }
 
     // Full public profile of a specific photographer
@@ -102,6 +114,33 @@ public class UserController {
 
         User reporter = userDetails.getUser();
         return ResponseEntity.ok(reportService.createReport(id, request, reporter));
+    }
+
+    @PutMapping("/{id}/interests")
+    public ResponseEntity<?> updateInterests(@PathVariable Long id,
+                                             @RequestBody List<String> interests,
+                                             @AuthenticationPrincipal CustomUserDetails userDetails) {
+        userService.updateInterests(id, interests, userDetails.getId());
+        return ResponseEntity.ok("Interests updated");
+    }
+    @GetMapping("/{id}/specializations")
+    public ResponseEntity<List<SpecializationResponse>> getSpecializations(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getSpecializations(id));
+    }
+
+    @PostMapping("/me/specializations")
+    public ResponseEntity<SpecializationResponse> addSpecialization(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody SpecializationRequest req) {
+        return ResponseEntity.ok(service.addSpecialization(userDetails.getUser(), req));
+    }
+
+    @DeleteMapping("/me/specializations/{id}")
+    public ResponseEntity<Void> removeSpecialization(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long id) {
+        service.removeCustomSpecialization(userDetails.getUser(), id);
+        return ResponseEntity.noContent().build();
     }
 
 }

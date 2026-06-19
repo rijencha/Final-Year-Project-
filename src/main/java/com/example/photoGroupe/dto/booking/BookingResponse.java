@@ -2,6 +2,7 @@ package com.example.photoGroupe.dto.booking;
 
 import com.example.photoGroupe.model.booking.Booking;
 import com.example.photoGroupe.model.booking.BookingStatus;
+import com.example.photoGroupe.model.booking.EscrowStatus;
 import com.example.photoGroupe.model.booking.PaymentStatus;
 import com.example.photoGroupe.model.event.EventType;
 
@@ -12,17 +13,24 @@ public class BookingResponse {
     private Long id;
     private String eventTitle;
     private EventType eventType;
+    private String customEventType;
+    private String displayEventType;
     private LocalDateTime eventDate;
     private String location;
     private String description;
     private Integer durationHours;
     private BigDecimal price;
+    private EscrowStatus escrowStatus;
     private BookingStatus status;
     private PaymentStatus paymentStatus;
     private String specialRequests;
     private String rejectionReason;
     private String cancellationReason;
     private LocalDateTime createdAt;
+
+    private String clientEmail;
+    private String clientPhone;
+    private String clientLocation;
 
     // Client info
     private Long clientId;
@@ -36,10 +44,16 @@ public class BookingResponse {
     private String portfolioLink;
     private boolean photographerVerified;
 
+    private boolean hasPendingPayment;
+
     public BookingResponse(Booking b) {
         this.id                   = b.getId();
         this.eventTitle           = b.getEventTitle();
         this.eventType            = b.getEventType();
+        this.customEventType = b.getCustomEventType();
+        this.displayEventType = b.getEventType() != null
+                ? b.getEventType().name()
+                : b.getCustomEventType();
         this.eventDate            = b.getEventDate();
         this.location             = b.getLocation();
         this.description          = b.getDescription();
@@ -51,6 +65,7 @@ public class BookingResponse {
         this.rejectionReason      = b.getRejectionReason();
         this.cancellationReason   = b.getCancellationReason();
         this.createdAt            = b.getCreatedAt();
+        this.escrowStatus = b.getEscrowStatus();
 
         this.clientId             = b.getClient().getId();
         this.clientName           = b.getClient().getFullName();
@@ -61,7 +76,13 @@ public class BookingResponse {
         this.photographerAvatar   = b.getPhotographer().getProfilePicture();
         this.portfolioLink        = b.getPhotographer().getPortfolioLink();
         this.photographerVerified = b.getPhotographer().isVerified();
+
+        this.clientEmail    = b.getClient().getEmail();
+        this.clientPhone    = b.getClient().getPhoneNumber();
+        this.clientLocation = b.getClient().getLocation();
     }
+
+
 
     // All getters
     public Long getId()                       { return id; }
@@ -86,4 +107,30 @@ public class BookingResponse {
     public String getPhotographerAvatar()     { return photographerAvatar; }
     public String getPortfolioLink()          { return portfolioLink; }
     public boolean isPhotographerVerified()   { return photographerVerified; }
+    public EscrowStatus getEscrowStatus() { return escrowStatus; }
+    public String getClientEmail() {
+        return clientEmail;
+    }
+
+    public String getClientPhone() {
+        return clientPhone;
+    }
+
+    public String getClientLocation() {
+        return clientLocation;
+    }
+
+    public String getCustomEventType() {
+        return customEventType;
+    }
+
+    public String getDisplayEventType() {
+        return displayEventType;
+    }
+
+    public boolean isHasPendingPayment() { return hasPendingPayment; }
+
+    public void setHasPendingPayment(boolean hasPendingPayment) {
+        this.hasPendingPayment = hasPendingPayment;
+    }
 }

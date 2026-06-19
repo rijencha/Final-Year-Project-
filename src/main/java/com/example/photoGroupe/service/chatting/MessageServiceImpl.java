@@ -2,6 +2,7 @@ package com.example.photoGroupe.service.chatting;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.example.photoGroupe.dto.booking.PackageResponse;
 import com.example.photoGroupe.dto.chatiing.ConversationResponse;
 import com.example.photoGroupe.dto.chatiing.MessageResponse;
 import com.example.photoGroupe.dto.chatiing.SendMessageRequest;
@@ -14,6 +15,7 @@ import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.chatting.ConversationRepository;
 import com.example.photoGroupe.repo.chatting.MessageRepository;
+import com.example.photoGroupe.repo.payment.BookingPackageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -38,6 +40,7 @@ public class MessageServiceImpl implements  MessageService{
     private final PinRepository pinRepository;
     private final SimpMessagingTemplate messagingTemplate;  // WebSocket pusher
     private final Cloudinary  cloudinary;
+    private final BookingPackageRepository packageRepository;
 
     @Override
     @Transactional
@@ -64,7 +67,7 @@ public class MessageServiceImpl implements  MessageService{
             message.setSharedPin(pin);
             message.setType(MessageType.PIN_SHARE);
         }
-
+        message.setBookingPackageId(request.getBookingPackageId()); // ← add this line
         messageRepository.save(message);
 
         // Update conversation timestamp
@@ -223,9 +226,30 @@ public class MessageServiceImpl implements  MessageService{
                 .senderProfilePicture(message.getSender().getProfilePicture())
                 .text(message.isDeleted() ? "[deleted]" : message.getText())
                 .type(message.getType())
+                .bookingPackageId(message.getBookingPackageId())
                 .read(message.isRead())
                 .createdAt(message.getCreatedAt())
                 .imageUrl(message.getImageUrl());
+
+        // ── Embed package if this is a PACKAGE message ────────────────────
+        if (message.getBookingPackageId() != null) {
+            packageRepository.findById(message.getBookingPackageId())
+                    .ifPresent(pkg -> builder.bookingPackage(
+                            PackageResponse.builder()
+                                    .id(pkg.getId())
+                                    .bookingId(pkg.getBooking().getId())
+                                    .price(pkg.getPrice())
+                                    .counterPrice(pkg.getCounterPrice())
+                                    .packageType(pkg.getPackageType())
+                                    .description(pkg.getDescription())
+                                    .deliveryDays(pkg.getDeliveryDays())
+                                    .status(pkg.getStatus())
+                                    .negotiationRound(pkg.getNegotiationRound())
+                                    .lastActionBy(pkg.getLastActionBy())
+                                    .createdAt(pkg.getCreatedAt())
+                                    .build()
+                    ));
+        }
 
         if (message.getSharedPin() != null) {
             builder.sharedPinId(message.getSharedPin().getId())
@@ -241,9 +265,13 @@ public class MessageServiceImpl implements  MessageService{
         long unread = messageRepository
                 .countByConversationIdAndReadFalseAndSenderIdNot(c.getId(), currentUserId);
 
-        // Last message text
-        String lastMessage = c.getMessages().isEmpty() ? null :
-                c.getMessages().get(c.getMessages().size() - 1).getText();
+        // ── Get last message as full response with package embedded ──────────
+        MessageResponse lastMessageObj = messageRepository
+                .findTopByConversationIdAndDeletedFalseOrderByCreatedAtDesc(c.getId())
+                .map(this::toMessageResponse)
+                .orElse(null);
+
+        String lastMessage = lastMessageObj != null ? lastMessageObj.getText() : null;
 
         return ConversationResponse.builder()
                 .id(c.getId())
@@ -251,6 +279,7 @@ public class MessageServiceImpl implements  MessageService{
                 .otherUsername(other.getActualUsername())
                 .otherProfilePicture(other.getProfilePicture())
                 .lastMessage(lastMessage)
+                .lastMessageObj(lastMessageObj)   // ← full message with package
                 .lastMessageAt(c.getUpdatedAt())
                 .unreadCount(unread)
                 .build();

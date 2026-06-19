@@ -1,5 +1,6 @@
 package com.example.photoGroupe.dto.chatiing;
 
+import com.example.photoGroupe.dto.booking.PackageResponse;
 import com.example.photoGroupe.model.chatting.MessageType;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class MessageResponse {
     private MessageType type;
     private boolean       read;
     private LocalDateTime createdAt;
+    private Long bookingPackageId;
 
     // Populated when type = PIN_SHARE
     private Long   sharedPinId;
@@ -26,4 +28,6 @@ public class MessageResponse {
 
     private String imageUrl;
     private String imageTitle;
+
+    private PackageResponse bookingPackage; // embedded package data
 }

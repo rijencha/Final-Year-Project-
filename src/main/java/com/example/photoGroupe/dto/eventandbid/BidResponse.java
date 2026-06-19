@@ -38,5 +38,56 @@ public class BidResponse {
         this.portfolioLink    = b.getPhotographer().getPortfolioLink();
         this.verified         = b.getPhotographer().isVerified();
     }
-    // getters
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getEventRequestId() {
+        return eventRequestId;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public String getProposal() {
+        return proposal;
+    }
+
+    public String getServicesIncluded() {
+        return servicesIncluded;
+    }
+
+    public Integer getDeliveryDays() {
+        return deliveryDays;
+    }
+
+    public BidStatus getStatus() {
+        return status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public Long getPhotographerId() {
+        return photographerId;
+    }
+
+    public String getPhotographerName() {
+        return photographerName;
+    }
+
+    public String getPhotographerAvatar() {
+        return photographerAvatar;
+    }
+
+    public String getPortfolioLink() {
+        return portfolioLink;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
 }

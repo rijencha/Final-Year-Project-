@@ -35,6 +35,9 @@ public class BidServiceImpl implements BidService {
         if (event.getStatus() != EventRequestStatus.OPEN)
             throw new RuntimeException("This event is no longer accepting bids");
 
+        if (event.getClient().getId().equals(photographer.getId()))
+            throw new RuntimeException("You cannot bid on your own event request");
+
         if (bidRepository.existsByEventRequestIdAndPhotographerId(eventId, photographer.getId()))
             throw new RuntimeException("You have already submitted a bid for this event");
 

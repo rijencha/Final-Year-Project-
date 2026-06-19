@@ -12,6 +12,8 @@ public class EventRequestResponse {
     private Long id;
     private String title;
     private EventType eventType;
+    private String customEventType;
+    private String displayEventType;
     private LocalDateTime eventDate;
     private String location;
     private String description;
@@ -20,7 +22,7 @@ public class EventRequestResponse {
     private EventRequestStatus status;
     private LocalDateTime deadlineAt;
     private LocalDateTime createdAt;
-    private int bidCount;
+    private long bidCount;
 
     // client info
     private Long clientId;
@@ -31,6 +33,10 @@ public class EventRequestResponse {
         this.id          = e.getId();
         this.title       = e.getTitle();
         this.eventType   = e.getEventType();
+        this.customEventType = e.getCustomEventType();
+        this.displayEventType = e.getEventType() != null
+                ? e.getEventType().name()
+                : e.getCustomEventType();
         this.eventDate   = e.getEventDate();
         this.location    = e.getLocation();
         this.description = e.getDescription();
@@ -63,8 +69,10 @@ public class EventRequestResponse {
     public EventRequestStatus getStatus()   { return status; }
     public LocalDateTime getDeadlineAt()    { return deadlineAt; }
     public LocalDateTime getCreatedAt()     { return createdAt; }
-    public int getBidCount()                { return bidCount; }
+    public long getBidCount()                { return bidCount; }
     public Long getClientId()               { return clientId; }
     public String getClientName()           { return clientName; }
     public String getClientAvatar()         { return clientAvatar; }
+    public String getCustomEventType() { return customEventType; }
+    public String getDisplayEventType() { return displayEventType; }
 }

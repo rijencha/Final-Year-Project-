@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -48,4 +49,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByPhotographerIdAndStatus(Long photographerId, BookingStatus status);
     long countByClientIdAndStatus(Long clientId, BookingStatus status);
     long countByPhotographerId(Long photographerId);
+    Optional<Booking> findByTransactionId(String transactionId);
 }

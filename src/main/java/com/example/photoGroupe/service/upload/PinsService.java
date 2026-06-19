@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 public interface PinsService {
 
@@ -53,4 +54,10 @@ public interface PinsService {
     Page<PinResponse> getSavedPins(int page, int size, Long currentUserId);
 
     long getShareCount(Long pinId);
+
+    List<PinResponse> getTopPins(int limit, Long currentUserId);
+
+    List<PinResponse> getTopPinsByUser(Long userId, int limit, Long currentUserId);
+
+    Page<PinResponse> getRelatedPins(Long pinId, int page, int size, Long currentUserId);
 }

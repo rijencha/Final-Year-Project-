@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
     Page<Message> findByConversationIdAndDeletedFalseOrderByCreatedAtDesc(
@@ -43,5 +44,5 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
         AND m.deleted = false
     """)
     long countTotalUnread(Long userId);
-
+    Optional<Message> findTopByConversationIdAndDeletedFalseOrderByCreatedAtDesc(Long conversationId);
 }

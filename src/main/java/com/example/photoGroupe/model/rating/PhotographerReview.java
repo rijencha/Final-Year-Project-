@@ -7,13 +7,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-@Table(
-        name = "photographer_reviews",
-        uniqueConstraints = @UniqueConstraint(
-                columnNames = {"reviewer_id", "photographer_id"},
-                name = "uq_one_review_per_photographer"
-        )
-)
+@Table(name = "photographer_reviews")
 public class PhotographerReview {
 
     @Id

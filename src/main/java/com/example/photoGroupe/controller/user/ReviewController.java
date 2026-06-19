@@ -45,13 +45,20 @@ public class ReviewController {
 
     // DELETE /api/photographers/reviews/{reviewId}
     @DeleteMapping("/reviews/{reviewId}")
-    public ResponseEntity<Void> deleteReview(
+    public ResponseEntity<?> deleteReview(
             @PathVariable Long reviewId,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        reviewService.deleteReview(reviewId, userDetails.getUser().getId());
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(reviewService.deleteReview(reviewId, userDetails.getUser().getId()));
     }
+
+//    @DeleteMapping("/{reviewId}/rating")
+//    public ResponseEntity<?> deleteRating(
+//            @PathVariable Long reviewId,
+//            @AuthenticationPrincipal CustomUserDetails userDetails) {
+//        reviewService.deleteRating(reviewId, userDetails.getUser().getId());
+//        return ResponseEntity.ok().build();
+//    }
 
     // GET /api/photographers/{photographerId}/reviews?page=0&size=10
     @GetMapping("/{photographerId}/reviews")

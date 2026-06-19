@@ -11,7 +11,6 @@ import com.example.photoGroupe.security.JwtService;
 import com.example.photoGroupe.security.RefreshTokenService;
 import com.example.photoGroupe.service.email.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,7 +37,7 @@ public class AuthServiceImpl implements AuthService{
 
     private final EmailService emailService;
 
-    private static final int  OTP_EXPIRY_MINUTES = 1;
+    private static final int  OTP_EXPIRY_MINUTES = 10;
 
 
     //    private final JwtService jwtService;
@@ -158,6 +157,7 @@ public class AuthServiceImpl implements AuthService{
     // ─── Logout ───────────────────────────────────────────────────────────
 
     public void logout(String refreshTokenValue) {
+
         refreshTokenService.revokeToken(refreshTokenValue);
     }
 

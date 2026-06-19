@@ -13,6 +13,7 @@ public class ConversationResponse {
     private String        otherUsername;
     private String        otherProfilePicture;
     private String        lastMessage;
+    private MessageResponse lastMessageObj;
     private LocalDateTime lastMessageAt;
     private long          unreadCount;
 }

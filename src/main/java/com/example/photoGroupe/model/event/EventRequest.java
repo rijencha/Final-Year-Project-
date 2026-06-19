@@ -32,8 +32,11 @@ public class EventRequest {
     private String title;               // "John's Wedding"
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column
     private EventType eventType;        // WEDDING, BIRTHDAY, CORPORATE, etc.
+
+    @Column(name = "custom_event_type")
+    private String customEventType;
 
     @Column(nullable = false)
     private LocalDateTime eventDate;
@@ -93,4 +96,5 @@ public class EventRequest {
     public List<Bid> getBids()                  { return bids; }
     public void setStatus(EventRequestStatus s) { this.status = s; }
     public void setUpdatedAt(LocalDateTime t)   { this.updatedAt = t; }
+    public String getCustomEventType() { return customEventType; }
 }

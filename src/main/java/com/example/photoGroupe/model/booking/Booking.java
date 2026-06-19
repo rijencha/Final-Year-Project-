@@ -30,17 +30,25 @@ public class Booking {
     @JoinColumn(name = "photographer_id", nullable = false)
     private User photographer;
 
+    @Column(name = "booking_package_id")
+    private Long bookingPackageId;
     // Optional — if booked from a bid
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bid_id")
     private Bid bid;
 
+    @Column(name = "transaction_id")
+    private String transactionId;
+
     @Column(nullable = false)
     private String eventTitle;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column
     private EventType eventType;
+
+    @Column(name = "custom_event_type")
+    private String customEventType;
 
     @Column(nullable = false)
     private LocalDateTime eventDate;
@@ -62,6 +70,13 @@ public class Booking {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id")
+    private Payment payment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "escrow_status")
+    private EscrowStatus escrowStatus;
 
     private String rejectionReason;     // photographer fills this on rejection
     private String cancellationReason;  // client fills this on cancellation
@@ -103,8 +118,23 @@ public class Booking {
     public String getSpecialRequests()        { return specialRequests; }
     public LocalDateTime getCreatedAt()       { return createdAt; }
     public LocalDateTime getUpdatedAt()       { return updatedAt; }
+    public String getTransactionId() { return transactionId; }
+    public Long getBookingPackageId() { return bookingPackageId; }
+    public String getCustomEventType() { return customEventType; }
 
     // ── Setters ──────────────────────────────────────────────────────────
+    public void setBookingPackageId(Long bookingPackageId) { this.bookingPackageId = bookingPackageId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
+    public Payment getPayment()                   { return payment; }
+    public EscrowStatus getEscrowStatus()         { return escrowStatus; }
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
+    public void setPayment(Payment p)             { this.payment = p; }
+    public void setEscrowStatus(EscrowStatus e)   { this.escrowStatus = e; }
+    // Add totalAmount helper (price is your total)
+    public BigDecimal getTotalAmount() { return price; }
+    public void setCustomEventType(String customEventType) { this.customEventType = customEventType; }
     public void setStatus(BookingStatus s)            { this.status = s; }
     public void setPaymentStatus(PaymentStatus p)     { this.paymentStatus = p; }
     public void setRejectionReason(String r)          { this.rejectionReason = r; }

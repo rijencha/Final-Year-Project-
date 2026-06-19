@@ -2,19 +2,27 @@ package com.example.photoGroupe.service.user;
 
 import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
+import com.example.photoGroupe.dto.eventandbid.SpecializationResponse;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.dto.detail.UserSummary;
+import com.example.photoGroupe.dto.rating.ReviewResponse;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.VerificationStatus;
+import com.example.photoGroupe.model.rating.PhotographerReview;
+import com.example.photoGroupe.repo.PhotographerReviewRepository;
+import com.example.photoGroupe.repo.PhotographerSpecializationRepository;
 import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +32,8 @@ public class UserServiceImpl implements UserService{
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
     private final PinRepository pinRepository;
+    private final PhotographerReviewRepository reviewRepository;
+    private final PhotographerSpecializationRepository specializationRepo;
 
     @Override
     public UserSummary getPublicUserById(Long id) {
@@ -49,14 +59,6 @@ public class UserServiceImpl implements UserService{
     public PhotographerDetail getPhotographerDetail(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Photographer not found with id: " + id));
-
-        if (user.getRole() != Role.PHOTOGRAPHER) {
-            throw new RuntimeException("User is not a photographer");
-        }
-
-        if (!user.isVerified()) {
-            throw new RuntimeException("Photographer is not verified");
-        }
 
         if (!user.isEnabled() || !user.isAccountNonLocked()) {
             throw new RuntimeException("This account is not available");
@@ -157,6 +159,28 @@ public class UserServiceImpl implements UserService{
         return toSummary(user); // already exists in your class
     }
 
+    @Override
+    public void updateInterests(Long userId, List<String> interests, Long currentUserId) {
+        if (!userId.equals(currentUserId)) throw new AccessDeniedException("Not authorized");
+        User user = userRepository.findById(userId).orElseThrow();
+        user.setInterests(String.join(",", interests));
+        userRepository.save(user);
+    }
+
+    @Override
+    public List<PhotographerDetail> getTopPhotographers(int limit) {
+        return userRepository
+                .findByRoleAndVerificationStatusAndDeletedFalse(Role.PHOTOGRAPHER, VerificationStatus.APPROVED)
+                .stream()
+                .map(this::toPhotographerDetail)
+                .filter(p -> p.getRatingCount() > 0)          // only rated photographers
+                .sorted(Comparator
+                        .comparingDouble(PhotographerDetail::getAverageRating).reversed()
+                        .thenComparingLong(PhotographerDetail::getReviewCount).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
     private UserSummary toSummary(User user) {
         return UserSummary.builder()
                 .id(user.getId())
@@ -181,7 +205,44 @@ public class UserServiceImpl implements UserService{
                 .build();
     }
 
+//    private PhotographerDetail toPhotographerDetail(User user) {
+//        return PhotographerDetail.builder()
+//                .id(user.getId())
+//                .fullName(user.getFullName())
+//                .username(user.getActualUsername())
+//                .phoneNumber(user.getPhoneNumber())
+//                .bio(user.getBio())
+//                .location(user.getLocation())
+//                .profilePicture(user.getProfilePicture())
+//                .pinCount(pinRepository.countByUserId(user.getId()))
+//                .verified(user.isVerified())
+//                .enable(user.isEnabled())
+//                .accountNonLocked(user.isAccountNonLocked())
+//                .deleted(user.isDeleted())
+//                .joinedAt(user.getCreatedAt())
+//                .build();
+//    }
     private PhotographerDetail toPhotographerDetail(User user) {
+        List<PhotographerReview> reviews =
+                reviewRepository.findByPhotographerIdAndDeletedFalseOrderByCreatedAtDesc(user.getId());
+
+        double avg = reviews.stream()
+                .filter(r -> r.getRating() > 0)
+                .mapToInt(PhotographerReview::getRating)
+                .average()
+                .orElse(0.0);
+        long ratingCount = reviews.stream()
+                .filter(r -> r.getRating() > 0)
+                .count();
+
+        long reviewCount = reviews.stream()
+                .filter(r -> r.getComment() != null && !r.getComment().isBlank())
+                .count();
+        List<SpecializationResponse> specializations = specializationRepo  // ← add this
+                .findAllByPhotographerId(user.getId())
+                .stream()
+                .map(SpecializationResponse::from)
+                .toList();
         return PhotographerDetail.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -196,6 +257,12 @@ public class UserServiceImpl implements UserService{
                 .accountNonLocked(user.isAccountNonLocked())
                 .deleted(user.isDeleted())
                 .joinedAt(user.getCreatedAt())
+                .averageRating(Math.round(avg * 10.0) / 10.0)
+                .ratingCount(ratingCount)
+                .reviewCount(reviewCount)
+    //            .recentReviews(reviewResponses)
+                .yearsOfExperience(user.getYearsOfExperience())       // ← add this
+                .specializations(specializations)
                 .build();
     }
 }

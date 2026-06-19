@@ -34,25 +34,38 @@ public class ReviewServiceImpl implements ReviewService {
         User photographer = findApprovedPhotographer(photographerId);
         User reviewer = findUser(currentUserId);
 
-        // A photographer cannot review themselves
         if (currentUserId.equals(photographerId)) {
             throw new RuntimeException("You cannot review yourself");
         }
 
-        // One review per user per photographer
-        if (reviewRepository.existsByReviewerIdAndPhotographerIdAndDeletedFalse(currentUserId, photographerId)) {
-            throw new RuntimeException("You have already reviewed this photographer");
-        }
-
+        // Restore soft-deleted review if exists, otherwise create new
+//        PhotographerReview review = reviewRepository
+//                .findByReviewerIdAndPhotographerId(currentUserId, photographerId)
+//                .map(existing -> {
+//                    if (!existing.isDeleted()) {
+//                        throw new RuntimeException("You have already reviewed this photographer");
+//                    }
+//                    // Restore soft-deleted review
+//                    existing.setDeleted(false);
+//                    existing.setRating(request.getRating());
+//                    existing.setComment(request.getComment());
+//                    return existing;
+//                })
+//                .orElseGet(() -> new PhotographerReview(
+//                        request.getRating(),
+//                        request.getComment(),
+//                        reviewer,
+//                        photographer
+//                ));
         PhotographerReview review = new PhotographerReview(
                 request.getRating(),
                 request.getComment(),
                 reviewer,
                 photographer
         );
+
         reviewRepository.save(review);
 
-        // Notify the photographer
         notificationService.create(
                 photographer,
                 reviewer,
@@ -87,19 +100,22 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
-    public void deleteReview(Long reviewId, Long currentUserId) {
+    public ReviewResponse deleteReview(Long reviewId, Long currentUserId) {
         PhotographerReview review = findActiveReview(reviewId);
 
-        User currentUser = findUser(currentUserId);
-        boolean isOwner = review.getReviewer().getId().equals(currentUserId);
-        boolean isAdmin = currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.SUPER_ADMIN;
-
-        if (!isOwner && !isAdmin) {
-            throw new AccessDeniedException("Not authorized to delete this review");
+        if (!review.getReviewer().getId().equals(currentUserId)) {
+            throw new AccessDeniedException("Not authorized");
         }
 
-        review.setDeleted(true);
-        reviewRepository.save(review);
+        // If no rating, soft delete entirely; otherwise keep rating, clear comment only
+        if (review.getRating() == 0) {
+            review.setDeleted(true);
+            reviewRepository.save(review);
+            return null;
+        }
+
+        review.setComment(null);
+        return toResponse(reviewRepository.save(review));
     }
 
     // ─── Get Reviews (paginated) ──────────────────────────────────────────
@@ -112,6 +128,26 @@ public class ReviewServiceImpl implements ReviewService {
         return reviewRepository
                 .findByPhotographerIdAndDeletedFalse(photographerId, pageable)
                 .map(this::toResponse);
+    }
+
+    @Override
+    @Transactional
+    public ReviewResponse deleteRating(Long reviewId, Long currentUserId) {
+        PhotographerReview review = findActiveReview(reviewId);
+
+        if (!review.getReviewer().getId().equals(currentUserId)) {
+            throw new AccessDeniedException("Not authorized");
+        }
+
+        // If no comment either, just soft delete the whole review
+        if (review.getComment() == null || review.getComment().isBlank()) {
+            review.setDeleted(true);
+            reviewRepository.save(review);
+            return null;
+        }
+
+        review.setRating(0); // 0 = no rating
+        return toResponse(reviewRepository.save(review));
     }
 
     // ─── Rating Summary ───────────────────────────────────────────────────

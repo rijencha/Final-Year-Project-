@@ -21,4 +21,7 @@ public class PhotographerVerificationResponse {
     private String phoneNumber;
     private String profilePicture;
     private long pinCount;
+    private long ratingCount;
+    private long reviewCount;
+    private double averageRating;
 }

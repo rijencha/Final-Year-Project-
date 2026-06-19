@@ -2,9 +2,11 @@ package com.example.photoGroupe.controller.booking;
 
 import com.example.photoGroupe.dto.eventandbid.EventRequestDTO;
 import com.example.photoGroupe.dto.eventandbid.EventRequestResponse;
+import com.example.photoGroupe.dto.eventandbid.EventTypeOptionsResponse;
 import com.example.photoGroupe.model.event.EventType;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.event.EventRequestService;
+import com.example.photoGroupe.service.photographer.PhotographerProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class EventRequestController {
     private final EventRequestService eventRequestService;
+    private final PhotographerProfileService photographerProfileService;
 
     // Client — create event request
     @PostMapping
@@ -53,11 +56,22 @@ public class EventRequestController {
     }
 
     // Photographer — filter by event type
-    @GetMapping("/open/type/{type}")
+    @GetMapping("/open/type")
     public ResponseEntity<Page<EventRequestResponse>> getOpenByType(
-            @PathVariable EventType type, Pageable pageable
+            @RequestParam String type,
+            Pageable pageable
     ) {
-        return ResponseEntity.ok(eventRequestService.getOpenRequestsByType(type, pageable));
+        try {
+            EventType enumType = EventType.valueOf(type.toUpperCase());
+            return ResponseEntity.ok(eventRequestService.getOpenRequestsByType(enumType, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(eventRequestService.getOpenRequestsByCustomType(type, pageable));
+        }
+    }
+
+    @GetMapping("/types")   // GET /api/events/types
+    public ResponseEntity<EventTypeOptionsResponse> getEventTypeOptions() {
+        return ResponseEntity.ok(photographerProfileService.getEventTypeOptions());
     }
 
     // Admin — get all

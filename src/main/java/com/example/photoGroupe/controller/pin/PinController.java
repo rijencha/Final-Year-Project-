@@ -4,6 +4,7 @@ import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.upload.PinsService;
+import com.example.photoGroupe.service.user.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -11,10 +12,12 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,6 +26,7 @@ import java.util.Map;
 public class PinController {
 
     private final PinsService pinsService;
+    private final UserService userService;
 
     // ─── Create ───────────────────────────────────────────────────────────
 
@@ -62,6 +66,17 @@ public class PinController {
     ) {
         Long userId = currentUser != null ? currentUser.getId() : null;
         return ResponseEntity.ok(pinsService.getPin(id, userId));
+    }
+
+    @GetMapping("/{pinId}/related")
+    public ResponseEntity<Page<PinResponse>> getRelatedPins(
+            @PathVariable Long pinId,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "12") int size,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        return ResponseEntity.ok(pinsService.getRelatedPins(pinId, page, size, currentUserId));
     }
 
     // GET /api/pins?page=0&size=20          — home feed
@@ -287,5 +302,21 @@ public class PinController {
     @GetMapping("/{pinId}/shares/count")
     public ResponseEntity<Map<String, Long>> getShareCount(@PathVariable Long pinId) {
         return ResponseEntity.ok(Map.of("shareCount", pinsService.getShareCount(pinId)));
+    }
+
+    @GetMapping("/top-pins")
+    public ResponseEntity<List<PinResponse>> getTopPins(
+            @RequestParam(defaultValue = "10") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(pinsService.getTopPins(limit, userDetails.getUser().getId()));
+    }
+
+    @GetMapping("/{userId}/top-pins")
+    public ResponseEntity<List<PinResponse>> getTopPinsByUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "6") int limit,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Long currentUserId = userDetails.getUser().getId();
+        return ResponseEntity.ok(pinsService.getTopPinsByUser(userId, limit, currentUserId));
     }
 }

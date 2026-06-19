@@ -19,4 +19,6 @@ public interface UserService {
     String updateProfilePicture(Long userId, MultipartFile file) throws IOException;
     UserSummary updateUser(Long userId, UpdateUserRequest request, User currentUser);
     UserSummary upgradeToPhotographer(Long userId, UpgradeToPhotographerRequest request);
+    void updateInterests(Long userId, List<String> interests, Long currentUserId);
+    List<PhotographerDetail> getTopPhotographers(int limit);
 }

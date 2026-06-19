@@ -7,7 +7,9 @@ import com.example.photoGroupe.model.OAuthProvider;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.VerificationStatus;
+import com.example.photoGroupe.model.rating.PhotographerReview;
 import com.example.photoGroupe.repo.AdminRepo;
+import com.example.photoGroupe.repo.PhotographerReviewRepository;
 import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
@@ -31,6 +33,7 @@ public class AdminServiceImpl implements AdminService {
     private final PasswordEncoder passwordEncoder;
     private final PinRepository pinRepository;
     private final NotificationService notificationService;
+    private final PhotographerReviewRepository reviewRepository;
 
     // ─── Admin ────────────────────────────────────────────────────────────
 
@@ -304,6 +307,22 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private PhotographerVerificationResponse toVerificationResponse(User user) {
+        List<PhotographerReview> reviews =
+                reviewRepository.findByPhotographerIdAndDeletedFalseOrderByCreatedAtDesc(user.getId());
+
+        double avg = reviews.stream()
+                .mapToInt(PhotographerReview::getRating)
+                .average()
+                .orElse(0.0);
+
+        long ratingCount = reviews.stream()
+                .filter(r -> r.getRating() > 0)
+                .count();
+
+        long reviewCount = reviews.stream()
+                .filter(r -> r.getComment() != null && !r.getComment().isBlank())
+                .count();
+
         return PhotographerVerificationResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -317,6 +336,9 @@ public class AdminServiceImpl implements AdminService {
                 .location(user.getLocation())
                 .verificationStatus(user.getVerificationStatus() != null ? user.getVerificationStatus().name() : null)
                 .joinedAt(user.getCreatedAt())
+                .averageRating(Math.round(avg * 10.0) / 10.0)
+                .ratingCount(ratingCount)
+                .reviewCount(reviewCount)
                 .build();
     }
 

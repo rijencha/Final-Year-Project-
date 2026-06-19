@@ -21,8 +21,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -141,13 +143,97 @@ public class PinsServiceImpl implements PinsService{
         return toResponse(pin, currentUserId);
     }
 
+//    @Override
+//    @Transactional(readOnly = true)
+//    public Page<PinResponse> getFeed(int page, int size, Long currentUserId) {
+//        Pageable pageable = PageRequest.of(page, size);
+//
+//        if (page == 0) {
+//            return pinRepository
+//                    .findByDeletedFalseOrderByCreatedAtDesc(pageable)
+//                    .map(p -> toResponse(p, currentUserId));
+//        }
+//
+//        User user = userRepository.findById(currentUserId).orElseThrow();
+//        String interestsStr = user.getInterests();
+//
+//        if (interestsStr == null || interestsStr.isBlank()) {
+//            return pinRepository.findAllShuffled(pageable)
+//                    .map(p -> toResponse(p, currentUserId));
+//        }
+//
+//        List<String> interests = List.of(interestsStr.split(","));
+//
+//        int interestSize = (int) Math.ceil(size * 0.7);  // 14 of 20
+//        int otherSize    = size - interestSize;           // 6 of 20
+//
+//        List<Pin> interestPins = pinRepository.findByInterestsRaw(
+//                interests, PageRequest.of(page - 1, interestSize));
+//
+//        List<Pin> otherPins = pinRepository.findExcludingInterestsRaw(
+//                interests, PageRequest.of(page - 1, otherSize));
+//
+//        List<Pin> merged = new java.util.ArrayList<>(interestPins);
+//        merged.addAll(otherPins);
+//
+//        List<PinResponse> content = merged.stream()
+//                .map(p -> toResponse(p, currentUserId))
+//                .toList();
+//
+//        return new org.springframework.data.domain.PageImpl<>(content, pageable, content.size());
+//    }
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> getFeed(int page, int size, Long currentUserId) {
         Pageable pageable = PageRequest.of(page, size);
-        return pinRepository
-                .findByDeletedFalseOrderByCreatedAtDesc(pageable)
-                .map(p -> toResponse(p, currentUserId));
+        User user = userRepository.findById(currentUserId).orElseThrow();
+        String interestsStr = user.getInterests();
+
+        if (interestsStr == null || interestsStr.isBlank()) {
+            return pinRepository.findByDeletedFalseOrderByCreatedAtDesc(pageable)
+                    .map(p -> toResponse(p, currentUserId));
+        }
+
+        List<String> interests = List.of(interestsStr.split(","));
+
+        int interestSize = (int) Math.ceil(size * 0.7);  // 14
+        int otherSize    = size - interestSize;           // 6
+
+        // Fetch a bit extra to survive de-dup losses
+        List<Pin> interestPins = pinRepository.findByInterestsRaw(
+                interests, PageRequest.of(page, interestSize + 5));
+
+        List<Pin> otherPins = pinRepository.findExcludingInterestsRaw(
+                interests, PageRequest.of(page, otherSize + 5));
+
+        // De-duplicate by pin id across both lists
+        Set<Long> seen = new java.util.LinkedHashSet<>();
+        List<Pin> merged = new java.util.ArrayList<>();
+
+        for (Pin p : interestPins) {
+            if (seen.add(p.getId())) merged.add(p);
+            if (merged.size() == interestSize) break;
+        }
+        for (Pin p : otherPins) {
+            if (seen.add(p.getId())) merged.add(p);
+            if (merged.size() == size) break;
+        }
+
+        // If interest pins didn't fill quota, backfill with more other pins
+        if (merged.size() < size) {
+            List<Pin> backfill = pinRepository.findExcludingInterestsRaw(
+                    interests, PageRequest.of(page, size));
+            for (Pin p : backfill) {
+                if (seen.add(p.getId())) merged.add(p);
+                if (merged.size() == size) break;
+            }
+        }
+
+        List<PinResponse> content = merged.stream()
+                .map(p -> toResponse(p, currentUserId))
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(content, pageable, content.size());
     }
 
     @Override
@@ -431,6 +517,9 @@ public class PinsServiceImpl implements PinsService{
         PinShare share = new PinShare(pin, user, shareLink);
         pinShareRepository.save(share);
 
+//        pinShareRepository.findByPinAndUser(pinId, currentUserId)
+//                .orElseGet(() -> pinShareRepository.save(new PinShare(pin, user, shareLink)));
+
         // Notify pin owner (skip self-share)
         if (!pin.getUser().getId().equals(currentUserId)) {
             notificationService.create(
@@ -445,7 +534,7 @@ public class PinsServiceImpl implements PinsService{
         return SharePinResponse.builder()
                 .pinId(pinId)
                 .shareLink(shareLink)
-                .totalShares(pinShareRepository.countByPinId(pinId))
+                .totalShares(pinShareRepository.countDistinctSharersByPinId(pinId))
                 .build();
     }
 
@@ -492,7 +581,68 @@ public class PinsServiceImpl implements PinsService{
     @Transactional(readOnly = true)
     public long getShareCount(Long pinId) {
         findActivePin(pinId);  // validates pin exists and is not deleted/suspended
-        return pinShareRepository.countByPinId(pinId);
+        return pinShareRepository.countDistinctSharersByPinId(pinId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getTopPins(int limit, Long currentUserId) {
+        return pinRepository.findByDeletedFalseAndSuspendedFalse()
+                .stream()
+                .map(p -> toResponse(p, currentUserId))
+                .sorted(Comparator.comparingInt(
+                        (PinResponse p) -> p.getLikeCount() + p.getCommentCount() + p.getShareCount() + p.getSaveCount()
+                ).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getTopPinsByUser(Long userId, int limit, Long currentUserId) {
+        return pinRepository
+                .findByUserIdAndDeletedFalseOrderByCreatedAtDesc(userId, Pageable.unpaged())
+                .getContent()
+                .stream()
+                .map(p -> toResponse(p, currentUserId))
+                .sorted(Comparator.comparingInt(
+                        (PinResponse p) -> p.getLikeCount() + p.getCommentCount() + p.getShareCount() + p.getSaveCount()
+                ).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PinResponse> getRelatedPins(Long pinId, int page, int size, Long currentUserId) {
+        Pin pin = findActivePin(pinId);
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Priority 1: Same category
+        if (pin.getCategory() != null) {
+            Page<Pin> byCategory = pinRepository.findRelatedByCategory(
+                    pin.getCategory().getId(), pinId, pageable
+            );
+            if (byCategory.hasContent()) {
+                return byCategory.map(p -> toResponse(p, currentUserId));
+            }
+        }
+
+        // Priority 2: Matching tags
+        if (pin.getTags() != null && !pin.getTags().isBlank()) {
+            List<String> tagList = List.of(pin.getTags().split(","));
+            Page<Pin> byTags = pinRepository.findRelatedByTags(
+                    tagList, pinId, pageable
+            );
+            if (byTags.hasContent()) {
+                return byTags.map(p -> toResponse(p, currentUserId));
+            }
+        }
+
+        // Fallback: Latest pins
+        return pinRepository
+                .findByDeletedFalseOrderByCreatedAtDesc(pageable)
+                .map(p -> toResponse(p, currentUserId));
     }
 
 
@@ -547,7 +697,7 @@ public class PinsServiceImpl implements PinsService{
         r.setSuspended(pin.isSuspended());
         r.setSuspensionReason(pin.isSuspended() ? pin.getSuspensionReason() : null);
         r.setSaveCount((int) savedPinRepository.countByPinId(pin.getId()));
-        r.setShareCount((int) pinShareRepository.countByPinId(pin.getId()));
+        r.setShareCount((int) pinShareRepository.countDistinctSharersByPinId(pin.getId()));
         r.setSavedByCurrentUser(
                 currentUserId != null &&
                         savedPinRepository.existsByUserIdAndPinId(currentUserId, pin.getId())

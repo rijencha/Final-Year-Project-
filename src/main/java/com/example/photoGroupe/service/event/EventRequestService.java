@@ -18,4 +18,5 @@ public interface EventRequestService {
     Page<EventRequestResponse> getAll(Pageable pageable);
     void forceCancel(Long eventId);
     EventRequest findById(Long id);
+    Page<EventRequestResponse> getOpenRequestsByCustomType(String customType, Pageable pageable);
 }

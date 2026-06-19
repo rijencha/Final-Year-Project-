@@ -57,6 +57,7 @@ public class BookingController {
     // ── Photographer ─────────────────────────────────────────────────────
 
     @GetMapping("/photographer")
+    @PreAuthorize("hasRole('PHOTOGRAPHER')")
     public ResponseEntity<Page<BookingResponse>> photographerBookings(
             @RequestParam(required = false) BookingStatus status,
             @AuthenticationPrincipal CustomUserDetails currentUser,
@@ -106,6 +107,17 @@ public class BookingController {
     ) {
         return ResponseEntity.ok(bookingService.getById(id));
     }
+
+    // Client confirms completion and releases payment
+    @PostMapping("/{id}/release-payment")
+    public ResponseEntity<BookingResponse> releasePayment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(
+                bookingService.releasePayment(id, currentUser.getUser())
+        );
+    }
+
 
     // ── Admin ─────────────────────────────────────────────────────────────
 

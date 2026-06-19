@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class EventRequestDTO {
     private String title;
     private EventType eventType;
+    private String customEventType;
     private LocalDateTime eventDate;
     private String location;
     private String description;

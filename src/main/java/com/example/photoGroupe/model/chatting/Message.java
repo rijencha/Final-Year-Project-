@@ -26,6 +26,9 @@ public class Message {
     @Column(columnDefinition = "TEXT")
     private String text;
 
+    @Column(name = "booking_package_id")
+    private Long bookingPackageId;
+
     // Optional: shared pin
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_pin_id")
@@ -76,6 +79,10 @@ public class Message {
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
     }
+    public Long getBookingPackageId()           { return bookingPackageId; }
+
+
+    public void setBookingPackageId(Long id)    { this.bookingPackageId = id; }
 
     // Setters
     public void setConversation(Conversation c) { this.conversation = c; }

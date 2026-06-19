@@ -22,10 +22,22 @@ public class EventRequestServiceImpl implements EventRequestService {
 
     @Override
     public EventRequestResponse create(User client, EventRequestDTO dto) {
+        if (dto.getEventType() == null && (dto.getCustomEventType() == null || dto.getCustomEventType().isBlank()))
+            throw new RuntimeException("Provide either eventType or customEventType");
+
+        // If a custom type is provided and no standard type matched, use OTHER as the enum anchor
+        EventType resolvedType = dto.getEventType();
+        String customType = dto.getCustomEventType();
+
+        if (resolvedType == null && customType != null && !customType.isBlank()) {
+            resolvedType = EventType.OTHER;  // anchor for custom types
+        }
+
         EventRequest event = EventRequest.builder()
                 .client(client)
                 .title(dto.getTitle())
-                .eventType(dto.getEventType())
+                .eventType(resolvedType)
+                .customEventType(customType)
                 .eventDate(dto.getEventDate())
                 .location(dto.getLocation())
                 .description(dto.getDescription())
@@ -35,7 +47,7 @@ public class EventRequestServiceImpl implements EventRequestService {
                 .build();
 
         EventRequest saved = eventRequestRepository.save(event);
-        return new EventRequestResponse(saved,"Event request created successfully");
+        return new EventRequestResponse(saved, "Event request created successfully");
     }
 
     @Override
@@ -82,6 +94,13 @@ public class EventRequestServiceImpl implements EventRequestService {
     public EventRequest findById(Long id) {
         return eventRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Event request not found"));
+    }
+
+    @Override
+    public Page<EventRequestResponse> getOpenRequestsByCustomType(String customType, Pageable pageable) {
+        return eventRequestRepository
+                .findByCustomEventTypeIgnoreCaseAndStatus(customType, EventRequestStatus.OPEN, pageable)
+                .map(EventRequestResponse::new);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
