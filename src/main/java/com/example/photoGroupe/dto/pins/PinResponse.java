@@ -44,6 +44,10 @@ public class PinResponse {
     private int     saveCount;
     private int     shareCount;
     private boolean savedByCurrentUser;
+    private int downloadCount;
+
+    private long viewCount;
+
 
     // ─── Getters / Setters (all fields) ──────────────────────────────────
 
@@ -77,7 +81,15 @@ public class PinResponse {
     public int getShareCount() {
         return shareCount;
     }
+    public int getDownloadCount() {
+        return downloadCount;
+    }
+    public long getViewCount()               { return viewCount; }
 
+    public void setViewCount(long viewCount) { this.viewCount = viewCount; }
+    public void setDownloadCount(int downloadCount) {
+        this.downloadCount = downloadCount;
+    }
     public void setShareCount(int shareCount) {
         this.shareCount = shareCount;
     }

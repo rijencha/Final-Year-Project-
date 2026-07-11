@@ -75,6 +75,14 @@ public class BidController {
         return ResponseEntity.ok(bidService.getBidsForEvent(eventId, currentUser.getId()));
     }
 
+    // Public — anyone authenticated can view bids on an event (live-auction visibility)
+    @GetMapping("/event/{eventId}/public")
+    public ResponseEntity<List<BidResponse>> getPublicBidsForEvent(
+            @PathVariable Long eventId
+    ) {
+        return ResponseEntity.ok(bidService.getPublicBidsForEvent(eventId));
+    }
+
     // Client — accept bid
     @PutMapping("/{bidId}/accept")
     public ResponseEntity<BidResponse> accept(

@@ -61,6 +61,9 @@ public class User implements UserDetails {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "profile_view_count", nullable = false)
+    private long profileViewCount = 0L;
+
     // ─── Account Status ───────────────────────────────────────────────────
 
     /**
@@ -198,10 +201,11 @@ public class User implements UserDetails {
     }
     public String getInterests() { return interests; }
     public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public long getProfileViewCount() { return profileViewCount; }
 
     // setter
     public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
-// ─── Setters ──────────────────────────────────────────────────────────
+    public void setProfileViewCount(long profileViewCount) { this.profileViewCount = profileViewCount; }
     public void setInterests(String interests) { this.interests = interests; }
     public void setId(Long id)                              { this.id = id; }
     public void setFullName(String fullName)                { this.fullName = fullName; }

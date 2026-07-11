@@ -1,5 +1,6 @@
 package com.example.photoGroupe.service.upload;
 
+import com.example.photoGroupe.dto.album.DownloadResponse;
 import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
@@ -11,7 +12,12 @@ import java.util.List;
 
 public interface PinsService {
 
-    PinResponse createPin(PinRequest request, Long currentUserId) throws IOException;
+    // interface
+    PinResponse createPin(PinRequest request, Long currentUserId, boolean albumOnly) throws IOException;
+
+    default PinResponse createPin(PinRequest request, Long currentUserId) throws IOException {
+        return createPin(request, currentUserId, false);
+    }
 
     PinResponse getPin(Long pinId, Long currentUserId);
 
@@ -60,4 +66,19 @@ public interface PinsService {
     List<PinResponse> getTopPinsByUser(Long userId, int limit, Long currentUserId);
 
     Page<PinResponse> getRelatedPins(Long pinId, int page, int size, Long currentUserId);
+
+    DownloadResponse trackPinDownload(Long pinId, Long currentUserId) throws IOException;
+
+    List<PinResponse> getMostSavedPins(int limit, Long currentUserId);
+
+    List<PinResponse> getMostSharedPins(int limit, Long currentUserId);
+
+    List<PinResponse> getMostDownloadedPins(int limit, Long currentUserId);
+
+    List<PinResponse> getMostViewedPins(int limit, Long currentUserId);
+
+    List<PinResponse> getUserMostSavedPins(Long userId, int limit, Long currentUserId);
+    List<PinResponse> getUserMostSharedPins(Long userId, int limit, Long currentUserId);
+    List<PinResponse> getUserMostDownloadedPins(Long userId, int limit, Long currentUserId);
+    List<PinResponse> getUserMostViewedPins(Long userId, int limit, Long currentUserId);
 }

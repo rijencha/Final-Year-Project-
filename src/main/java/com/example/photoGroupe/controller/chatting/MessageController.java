@@ -3,6 +3,8 @@ package com.example.photoGroupe.controller.chatting;
 import com.example.photoGroupe.dto.chatiing.ConversationResponse;
 import com.example.photoGroupe.dto.chatiing.MessageResponse;
 import com.example.photoGroupe.dto.chatiing.SendMessageRequest;
+import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.chatting.MessageService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -27,6 +30,8 @@ import java.util.Map;
 public class MessageController {
 
     private final MessageService messageService;
+    private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ── REST: Send message ────────────────────────────────────────────────
     @PostMapping("/send")
@@ -119,8 +124,16 @@ public class MessageController {
     public void typing(@Payload Map<String, Object> payload,
                        java.security.Principal principal) {
         Long receiverId = Long.valueOf(payload.get("receiverId").toString());
-        // Push typing event to receiver
-        // (inject SimpMessagingTemplate here if needed)
+        Long senderId = extractUserIdFromPrincipal(principal);
+
+        User receiver = userRepository.findById(receiverId)
+                .orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+        messagingTemplate.convertAndSendToUser(
+                receiver.getEmail(),          // ✅ match sendMessage's convention
+                "/queue/typing",
+                Map.of("senderId", senderId)
+        );
     }
 
     private Long extractUserIdFromPrincipal(java.security.Principal principal) {

@@ -1,18 +1,22 @@
 package com.example.photoGroupe.service.workshop;
 
 import com.example.photoGroupe.dto.workshop.WorkshopDTOs.*;
+import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.workshop.WorkshopStatus;
 import com.example.photoGroupe.security.CustomUserDetails;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 public interface WorkshopService {
 
-    WorkshopDetailResponse createWorkshop(WorkshopRequest req, CustomUserDetails currentUser);
+    // change create
+    WorkshopDetailResponse createWorkshop(WorkshopRequest req, MultipartFile coverImage, CustomUserDetails currentUser);
 
-    WorkshopDetailResponse updateWorkshop(Long id, WorkshopRequest req, CustomUserDetails currentUser);
+    // change update
+    WorkshopDetailResponse updateWorkshop(Long id, WorkshopRequest req, MultipartFile coverImage, CustomUserDetails currentUser);
 
     void deleteWorkshop(Long id, CustomUserDetails currentUser);
 
@@ -24,10 +28,18 @@ public interface WorkshopService {
 
     List<WorkshopSummaryResponse> myWorkshops(CustomUserDetails currentUser);
 
-    WorkshopEsewaFormData initiateJoin(Long workshopId, CustomUserDetails currentUser) throws Exception;
-
-    void verifyAndConfirmJoin(String encodedData) throws Exception;
-
-
     List<ParticipantResponse> getParticipants(Long workshopId, CustomUserDetails currentUser);
+
+    Long registerParticipant(Long workshopId, WorkshopRegistrationRequest req, CustomUserDetails currentUser);
+
+    ParticipantResponse getMyRegistration(Long workshopId, CustomUserDetails currentUser);
+
+    // Admin
+    Page<WorkshopSummaryResponse> listAll(Pageable pageable);
+    WorkshopDetailResponse adminUpdateStatus(Long id, WorkshopStatus status, User admin);
+    void adminDeleteWorkshop(Long id, User admin);
+    List<ParticipantResponse> adminGetParticipants(Long workshopId);
+
+
+
 }

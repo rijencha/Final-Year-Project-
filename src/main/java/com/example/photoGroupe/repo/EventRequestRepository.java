@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Repository
 public interface EventRequestRepository extends JpaRepository<EventRequest, Long> {
     Page<EventRequest> findByStatus(EventRequestStatus status, Pageable pageable);
@@ -33,4 +36,6 @@ public interface EventRequestRepository extends JpaRepository<EventRequest, Long
     // For custom-only filter (when user picks a custom type like "portrait session")
     Page<EventRequest> findByCustomEventTypeIgnoreCaseAndStatus(
             String customEventType, EventRequestStatus status, Pageable pageable);
+
+    List<EventRequest> findByStatusAndDeadlineAtBefore(EventRequestStatus status, LocalDateTime dateTime);
 }

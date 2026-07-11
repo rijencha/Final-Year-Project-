@@ -1,27 +1,44 @@
 package com.example.photoGroupe.service.admin;
 
 import com.example.photoGroupe.dto.admin.CreateAdminRequest;
+import com.example.photoGroupe.dto.ads.BannerAdResponse;
+import com.example.photoGroupe.dto.ads.BoostResponse;
+import com.example.photoGroupe.dto.booking.BookingResponse;
+import com.example.photoGroupe.dto.booking.EventTypeBookingResponse;
+import com.example.photoGroupe.dto.booking.SpecializationBookingResponse;
 import com.example.photoGroupe.dto.detail.UserSummary;
 import com.example.photoGroupe.dto.photographer.PhotographerVerificationResponse;
 import com.example.photoGroupe.model.OAuthProvider;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.VerificationStatus;
+import com.example.photoGroupe.model.ads.BannerAd;
+import com.example.photoGroupe.model.ads.BannerStatus;
+import com.example.photoGroupe.model.ads.PhotographerBoost;
+import com.example.photoGroupe.model.booking.Booking;
+import com.example.photoGroupe.model.booking.BookingStatus;
 import com.example.photoGroupe.model.rating.PhotographerReview;
-import com.example.photoGroupe.repo.AdminRepo;
-import com.example.photoGroupe.repo.PhotographerReviewRepository;
-import com.example.photoGroupe.repo.PinRepository;
-import com.example.photoGroupe.repo.UserRepository;
+import com.example.photoGroupe.repo.*;
+import com.example.photoGroupe.repo.ads.BannerAdRepository;
+import com.example.photoGroupe.repo.ads.PhotographerBoostRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.album.AlbumService;
 import com.example.photoGroupe.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,7 +51,9 @@ public class AdminServiceImpl implements AdminService {
     private final PinRepository pinRepository;
     private final NotificationService notificationService;
     private final PhotographerReviewRepository reviewRepository;
-
+    private final BannerAdRepository bannerAdRepository;
+    private final PhotographerBoostRepository boostRepository;
+    private final BookingRepository bookingRepository;
     // ─── Admin ────────────────────────────────────────────────────────────
 
     @Override
@@ -96,6 +115,15 @@ public class AdminServiceImpl implements AdminService {
     public void deleteUser(Long id) {
         User user = userRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new RuntimeException("User not found or already deleted: " + id));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User requester = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        if (user.getRole() == Role.ADMIN && requester.getRole() != Role.SUPER_ADMIN)
+            throw new RuntimeException("Only a super admin can delete an admin account");
+
+        if (user.getRole() == Role.SUPER_ADMIN)
+            throw new RuntimeException("Super admin accounts cannot be deleted");
 
         user.setDeleted(true);
         user.setDeletedAt(LocalDateTime.now());
@@ -279,7 +307,270 @@ public class AdminServiceImpl implements AdminService {
         return toVerificationResponse(user);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BannerAdResponse> getReviewQueue(int page, int size) {
+        return bannerAdRepository.findByStatusOrderByCreatedAtAsc(
+                BannerStatus.PENDING_REVIEW, PageRequest.of(page, size)
+        ).map(BannerAdResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BannerAdResponse> getAllBanners(int page, int size) {
+        return bannerAdRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size))
+                .map(BannerAdResponse::from);
+    }
+
+    @Override
+    @Transactional
+    public BannerAdResponse approveBanner(Long bannerId) {
+        BannerAd banner = bannerAdRepository.findById(bannerId)
+                .orElseThrow(() -> new RuntimeException("Banner not found"));
+
+        if (banner.getStatus() != BannerStatus.PENDING_REVIEW)
+            throw new RuntimeException("Only banners pending review can be approved");
+
+        LocalDateTime now = LocalDateTime.now();
+        banner.setStatus(BannerStatus.ACTIVE);
+        banner.setStartAt(now);
+        banner.setEndAt(now.plusDays(banner.getDaysPurchased()));
+        bannerAdRepository.save(banner);
+
+        notificationService.create(
+                banner.getAdvertiser(), banner.getAdvertiser(), "BANNER_ACTIVE",
+                "Your banner \"" + banner.getTitle() + "\" was approved and is now live for "
+                        + banner.getDaysPurchased() + " day(s)",
+                "/dashboard/ads/" + banner.getId()
+        );
+
+        return BannerAdResponse.from(banner);
+    }
+
+    @Override
+    @Transactional
+    public BannerAdResponse rejectBanner(Long bannerId, String reason) {
+        BannerAd banner = bannerAdRepository.findById(bannerId)
+                .orElseThrow(() -> new RuntimeException("Banner not found"));
+
+        if (banner.getStatus() != BannerStatus.PENDING_REVIEW)
+            throw new RuntimeException("Only banners pending review can be rejected");
+
+        banner.setStatus(BannerStatus.REJECTED);
+        bannerAdRepository.save(banner);
+
+        notificationService.create(
+                banner.getAdvertiser(), banner.getAdvertiser(), "BANNER_REJECTED",
+                "Your banner \"" + banner.getTitle() + "\" was rejected"
+                        + (reason != null && !reason.isBlank() ? ": " + reason : "")
+                        + ". Contact support for a refund.",
+                "/dashboard/ads/" + banner.getId()
+        );
+
+        return BannerAdResponse.from(banner);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BoostResponse> getAllBoosts(int page, int size) {
+        return boostRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size))
+                .map(BoostResponse::from);
+    }
+
+    @Override
+    @Transactional
+    public BoostResponse revokeBoost(Long boostId, String reason) {
+        PhotographerBoost boost = boostRepository.findById(boostId)
+                .orElseThrow(() -> new RuntimeException("Boost not found"));
+
+        if (boost.getStatus() != BannerStatus.ACTIVE)
+            throw new RuntimeException("Only active boosts can be revoked");
+
+        boost.setStatus(BannerStatus.CANCELLED);
+        boost.setEndAt(LocalDateTime.now());
+        boostRepository.save(boost);
+
+        notificationService.create(
+                boost.getPhotographer(), boost.getPhotographer(), "BOOST_REVOKED",
+                "Your featured placement was revoked by an admin"
+                        + (reason != null && !reason.isBlank() ? ": " + reason : ""),
+                "/dashboard/boost"
+        );
+
+        return BoostResponse.from(boost);
+    }
+
+    // ─── Revenue Summary ─────────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdRevenueSummary getRevenueSummary() {
+        var bannerRevenue = bannerAdRepository.sumRevenue();
+        var boostRevenue = boostRepository.sumRevenue();
+        return new AdRevenueSummary(bannerRevenue, boostRevenue, bannerRevenue.add(boostRevenue));
+    }
+    //----------------------------------------------------------------------------------------------
+
+    public List<EventTypeBookingResponse> getBookingsGroupedByEventType(BookingStatus status) {
+        List<Booking> allBookings = bookingRepository.findAllForEventTypeGrouping(status);
+
+        Map<String, List<Booking>> grouped = new LinkedHashMap<>();
+        for (Booking b : allBookings) {
+            String typeName = resolveEventTypeName(b);
+            grouped.computeIfAbsent(typeName, k -> new ArrayList<>()).add(b);
+        }
+
+        List<EventTypeBookingResponse> result = new ArrayList<>();
+        for (Map.Entry<String, List<Booking>> entry : grouped.entrySet()) {
+            List<Booking> bookings = entry.getValue();
+
+            BigDecimal total = bookings.stream()
+                    .map(Booking::getPrice)
+                    .filter(p -> p != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            result.add(EventTypeBookingResponse.builder()
+                    .eventTypeName(entry.getKey())
+                    .bookingCount(bookings.size())
+                    .totalRevenue(total)
+                    .bookings(bookings.stream().map(BookingResponse::new).toList())
+                    .build());
+        }
+
+        return result;
+    }
+
+    public EventTypeBookingResponse getBookingsByEventType(String eventTypeName, BookingStatus status) {
+        List<Booking> allBookings = bookingRepository.findAllForEventTypeGrouping(status);
+
+        List<Booking> matched = allBookings.stream()
+                .filter(b -> resolveEventTypeName(b).equalsIgnoreCase(eventTypeName))
+                .toList();
+
+        BigDecimal total = matched.stream()
+                .map(Booking::getPrice)
+                .filter(p -> p != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return EventTypeBookingResponse.builder()
+                .eventTypeName(eventTypeName)
+                .bookingCount(matched.size())
+                .totalRevenue(total)
+                .bookings(matched.stream().map(BookingResponse::new).toList())
+                .build();
+    }
+
+    /**
+     * Bookings for a single specialization (e.g. "Wedding" or a custom type like "Drone Photography").
+     */
+    public SpecializationBookingResponse getBookingsBySpecialization(String specializationName, BookingStatus status) {
+        List<Booking> bookings = bookingRepository.findBookingsBySpecializationName(specializationName, status);
+
+        BigDecimal total = bookings.stream()
+                .map(Booking::getPrice)
+                .filter(p -> p != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return SpecializationBookingResponse.builder()
+                .specializationName(specializationName)
+                .bookingCount(bookings.size())
+                .totalRevenue(total)
+                .bookings(bookings.stream().map(BookingResponse::new).toList())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public BannerAdResponse removeBanner(Long bannerId, String reason) {
+        BannerAd banner = bannerAdRepository.findById(bannerId)
+                .orElseThrow(() -> new RuntimeException("Banner not found"));
+
+        if (banner.getStatus() != BannerStatus.ACTIVE)
+            throw new RuntimeException("Only active banners can be removed");
+
+        banner.setStatus(BannerStatus.CANCELLED);
+        banner.setEndAt(LocalDateTime.now());
+        bannerAdRepository.save(banner);
+
+        notificationService.create(
+                banner.getAdvertiser(), banner.getAdvertiser(), "BANNER_REMOVED",
+                "Your banner \"" + banner.getTitle() + "\" was removed by an admin"
+                        + (reason != null && !reason.isBlank() ? ": " + reason : "")
+                        + ". Contact support if you have questions.",
+                "/dashboard/ads/" + banner.getId()
+        );
+
+        return BannerAdResponse.from(banner);
+    }
+
+    // ─── Update admin password (SUPER_ADMIN only) ───────────────────────
+
+    @Override
+    public UserSummary updateAdminPassword(Long adminId, String newPassword) {
+        User admin = userRepository.findByIdAndDeletedFalse(adminId)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + adminId));
+
+        if (admin.getRole() != Role.ADMIN)
+            throw new RuntimeException("Target user is not an admin");
+
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 8)
+            throw new RuntimeException("Password must be at least 8 characters");
+
+        admin.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(admin);
+
+        return toSummary(admin);
+    }
+
+    // ─── Revoke admin privileges (demote ADMIN → USER, SUPER_ADMIN only) ─
+
+    @Override
+    public UserSummary revokeAdmin(Long adminId) {
+        User admin = userRepository.findByIdAndDeletedFalse(adminId)
+                .orElseThrow(() -> new RuntimeException("Admin not found with id: " + adminId));
+
+        if (admin.getRole() != Role.ADMIN)
+            throw new RuntimeException("Target user is not an admin");
+
+//        admin.setRole(Role.USER);
+//        userRepository.save(admin);
+        admin.setRole(Role.USER);
+        admin.setVerified(false);   // optional — reset since verified has no meaning for a plain USER
+        userRepository.save(admin);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User superAdmin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
+        notificationService.create(
+                admin,
+                superAdmin,
+                "ADMIN_REVOKED",
+                "Your admin privileges have been revoked.",
+                "/dashboard"
+        );
+
+        return toSummary(admin);
+    }
+
+    @Override
+    public List<UserSummary> getAllAdmins() {
+        List<User> admins = userRepository.findByRoleInAndDeletedFalse(
+                List.of(Role.ADMIN, Role.SUPER_ADMIN)
+        );
+
+        return admins.stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
     // ─── Helper ───────────────────────────────────────────────────────────
+
+    private String resolveEventTypeName(Booking b) {
+        if (b.getEventType() != null) return b.getEventType().name();
+        if (b.getCustomEventType() != null && !b.getCustomEventType().isBlank())
+            return b.getCustomEventType().trim();
+        return "Uncategorized";
+    }
 
     private UserSummary toSummary(User user) {
         return UserSummary.builder()
@@ -302,6 +593,7 @@ public class AdminServiceImpl implements AdminService {
                 .accountNonLocked(user.isAccountNonLocked())
                 .profilePicture(user.getProfilePicture())
                 .deleted(user.isDeleted())
+                .deletedAt(user.getDeletedAt())
                 .joinedAt(user.getCreatedAt())
                 .build();
     }

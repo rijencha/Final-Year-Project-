@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 
 public class WorkshopDTOs {
 
-    /** Photographer creates / updates a workshop */
     public record WorkshopRequest(
             String title,
             String description,
@@ -18,8 +17,7 @@ public class WorkshopDTOs {
             String location,
             String duration,
             int totalSeats,
-            BigDecimal price,
-            String coverImage
+            BigDecimal price
     ) {}
 
     // ─── Response DTOs ────────────────────────────────────────────────────────
@@ -84,5 +82,12 @@ public class WorkshopDTOs {
             WorkshopParticipantStatus status,
             LocalDateTime registeredAt,
             LocalDateTime paidAt
+    ) {}
+
+    public record WorkshopRegistrationRequest(
+            String registrantName,
+            String registrantEmail,
+            String registrantPhone,
+            String notes
     ) {}
 }

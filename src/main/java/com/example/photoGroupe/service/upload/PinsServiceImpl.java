@@ -2,13 +2,20 @@ package com.example.photoGroupe.service.upload;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.example.photoGroupe.dto.album.DownloadResponse;
 import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.*;
+import com.example.photoGroupe.model.pins.PinDownload;
 import com.example.photoGroupe.model.pins.PinShare;
+import com.example.photoGroupe.model.pins.PinView;
 import com.example.photoGroupe.model.pins.SavedPin;
+import com.example.photoGroupe.model.restrict.RestrictionType;
 import com.example.photoGroupe.repo.*;
+import com.example.photoGroupe.repo.pins.PinDownloadRepository;
+import com.example.photoGroupe.repo.pins.PinViewRepository;
 import com.example.photoGroupe.service.notification.NotificationService;
-import com.example.photoGroupe.service.user.UserService;
+import com.example.photoGroupe.service.restrict.FeedExclusionService;
+import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -21,10 +28,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +44,10 @@ public class PinsServiceImpl implements PinsService{
     private final NotificationService  notificationService;
     private final SavedPinRepository savedPinRepository;
     private final PinShareRepository pinShareRepository;
+    private final PinDownloadRepository pinDownloadRepository;
+    private final PinViewRepository pinViewRepository;
+    private final FeedExclusionService feedExclusionService;
+    private final UserRestrictionService restrictionService;
 
     @Value("${app.base-url}")          // e.g. https://yourapp.com  (set in application.properties)
     private String baseUrl;
@@ -65,7 +74,7 @@ public class PinsServiceImpl implements PinsService{
 
     @Override
     @Transactional
-    public PinResponse createPin(PinRequest request, Long currentUserId) throws IOException {
+    public PinResponse createPin(PinRequest request, Long currentUserId, boolean albumOnly) throws IOException {
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -79,8 +88,8 @@ public class PinsServiceImpl implements PinsService{
                 request.getTags(),
                 user
         );
+        pin.setAlbumOnly(albumOnly);   // ← new line
 
-        // ── Category (by id, slug, or name — whichever is provided) ──────────
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -100,11 +109,36 @@ public class PinsServiceImpl implements PinsService{
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PinResponse getPin(Long pinId, Long currentUserId) {
         Pin pin = findActivePin(pinId);
-        return toResponse(pin, currentUserId);
 
+        if (currentUserId != null && !currentUserId.equals(pin.getUser().getId())) {
+            User viewer = userRepository.findById(currentUserId).orElse(null);
+            if (viewer != null) {
+                Optional<PinView> existingView =
+                        pinViewRepository.findByPinIdAndUserId(pinId, currentUserId);
+
+                boolean shouldCount = existingView
+                        .map(pv -> pv.getLastViewedAt()
+                                .isBefore(LocalDateTime.now().minusHours(24)))
+                        .orElse(true); // no record → first view → count it
+
+                if (shouldCount) {
+                    pinRepository.incrementViewCount(pinId);
+                    pin.setViewCount(pin.getViewCount() + 1);
+
+                    if (existingView.isPresent()) {
+                        existingView.get().setLastViewedAt(LocalDateTime.now());
+                        pinViewRepository.save(existingView.get());
+                    } else {
+                        pinViewRepository.save(new PinView(pin, viewer));
+                    }
+                }
+            }
+        }
+
+        return toResponse(pin, currentUserId);
     }
 
     @Override
@@ -143,55 +177,26 @@ public class PinsServiceImpl implements PinsService{
         return toResponse(pin, currentUserId);
     }
 
-//    @Override
-//    @Transactional(readOnly = true)
-//    public Page<PinResponse> getFeed(int page, int size, Long currentUserId) {
-//        Pageable pageable = PageRequest.of(page, size);
-//
-//        if (page == 0) {
-//            return pinRepository
-//                    .findByDeletedFalseOrderByCreatedAtDesc(pageable)
-//                    .map(p -> toResponse(p, currentUserId));
-//        }
-//
-//        User user = userRepository.findById(currentUserId).orElseThrow();
-//        String interestsStr = user.getInterests();
-//
-//        if (interestsStr == null || interestsStr.isBlank()) {
-//            return pinRepository.findAllShuffled(pageable)
-//                    .map(p -> toResponse(p, currentUserId));
-//        }
-//
-//        List<String> interests = List.of(interestsStr.split(","));
-//
-//        int interestSize = (int) Math.ceil(size * 0.7);  // 14 of 20
-//        int otherSize    = size - interestSize;           // 6 of 20
-//
-//        List<Pin> interestPins = pinRepository.findByInterestsRaw(
-//                interests, PageRequest.of(page - 1, interestSize));
-//
-//        List<Pin> otherPins = pinRepository.findExcludingInterestsRaw(
-//                interests, PageRequest.of(page - 1, otherSize));
-//
-//        List<Pin> merged = new java.util.ArrayList<>(interestPins);
-//        merged.addAll(otherPins);
-//
-//        List<PinResponse> content = merged.stream()
-//                .map(p -> toResponse(p, currentUserId))
-//                .toList();
-//
-//        return new org.springframework.data.domain.PageImpl<>(content, pageable, content.size());
-//    }
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> getFeed(int page, int size, Long currentUserId) {
         Pageable pageable = PageRequest.of(page, size);
         User user = userRepository.findById(currentUserId).orElseThrow();
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
         String interestsStr = user.getInterests();
 
         if (interestsStr == null || interestsStr.isBlank()) {
-            return pinRepository.findByDeletedFalseOrderByCreatedAtDesc(pageable)
-                    .map(p -> toResponse(p, currentUserId));
+            List<Pin> filtered = pinRepository
+                    .findByDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(
+                            PageRequest.of(page, size + exclusions.pinIds().size() + exclusions.userIds().size() + exclusions.categoryIds().size()))
+                    .getContent().stream()
+                    .filter(p -> !exclusions.excludes(p))
+                    .limit(size)
+                    .toList();
+
+            return new org.springframework.data.domain.PageImpl<>(
+                    filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                    PageRequest.of(page, size), filtered.size());
         }
 
         List<String> interests = List.of(interestsStr.split(","));
@@ -201,10 +206,12 @@ public class PinsServiceImpl implements PinsService{
 
         // Fetch a bit extra to survive de-dup losses
         List<Pin> interestPins = pinRepository.findByInterestsRaw(
-                interests, PageRequest.of(page, interestSize + 5));
+                        interests, PageRequest.of(page, interestSize + 5))
+                .stream().filter(p -> !exclusions.excludes(p)).toList();
 
         List<Pin> otherPins = pinRepository.findExcludingInterestsRaw(
-                interests, PageRequest.of(page, otherSize + 5));
+                        interests, PageRequest.of(page, otherSize + 5))
+                .stream().filter(p -> !exclusions.excludes(p)).toList();
 
         // De-duplicate by pin id across both lists
         Set<Long> seen = new java.util.LinkedHashSet<>();
@@ -222,7 +229,8 @@ public class PinsServiceImpl implements PinsService{
         // If interest pins didn't fill quota, backfill with more other pins
         if (merged.size() < size) {
             List<Pin> backfill = pinRepository.findExcludingInterestsRaw(
-                    interests, PageRequest.of(page, size));
+                            interests, PageRequest.of(page, size))
+                    .stream().filter(p -> !exclusions.excludes(p)).toList();
             for (Pin p : backfill) {
                 if (seen.add(p.getId())) merged.add(p);
                 if (merged.size() == size) break;
@@ -239,19 +247,35 @@ public class PinsServiceImpl implements PinsService{
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> getUserPins(Long userId, int page, int size, Long currentUserId) {
-        Pageable pageable = PageRequest.of(page, size);
-        return pinRepository
-                .findByUserIdAndDeletedFalseOrderByCreatedAtDesc(userId, pageable)
-                .map(p -> toResponse(p, currentUserId));
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable pageable = PageRequest.of(page, size + exclusions.pinIds().size());
+
+        List<Pin> filtered = pinRepository
+                .findByUserIdAndDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(userId, pageable)
+                .getContent().stream()
+                .filter(p -> !exclusions.pinIds().contains(p.getId()))
+                .limit(size)
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                PageRequest.of(page, size), filtered.size());
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> searchByTag(String tag, int page, int size, Long currentUserId) {
-        Pageable pageable = PageRequest.of(page, size);
-        return pinRepository
-                .findByTag(tag, pageable)
-                .map(p -> toResponse(p, currentUserId));
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable pageable = PageRequest.of(page, size + exclusions.pinIds().size() + exclusions.userIds().size() + 5);
+
+        List<Pin> filtered = pinRepository.findByTag(tag, pageable).getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .limit(size)
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                PageRequest.of(page, size), filtered.size());
     }
 
     @Override
@@ -288,6 +312,8 @@ public class PinsServiceImpl implements PinsService{
     @Transactional
     public CommentResponse addComment(Long pinId, CommentRequest request, Long currentUserId) {
         Pin pin = findActivePin(pinId);
+        restrictionService.assertNotRestricted(pin.getUser().getId(), currentUserId, RestrictionType.COMMENT);
+
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -310,7 +336,7 @@ public class PinsServiceImpl implements PinsService{
     public Page<CommentResponse> getComments(Long pinId, int page, int size, Long currentUserId) {
         Pageable pageable = PageRequest.of(page, size);
         return commentRepository
-                .findByPinIdAndDeletedFalseOrderByCreatedAtAsc(pinId, pageable)
+                .findByPinIdAndParentIsNullAndDeletedFalseOrderByCreatedAtAsc(pinId, pageable)
                 .map(c -> toCommentResponse(c, currentUserId));
     }
 
@@ -351,10 +377,20 @@ public class PinsServiceImpl implements PinsService{
     public Page<PinResponse> getPinsByCategoryName(String name, int page, int size, Long currentUserId) {
         Category category = categoryRepository.findByName(name)
                 .orElseThrow(() -> new RuntimeException("Category not found with name: " + name));
-        Pageable pageable = PageRequest.of(page, size);
-        return pinRepository
-                .findByCategoryIdAndDeletedFalse(category.getId(), pageable)
-                .map(p -> toResponse(p, currentUserId));
+
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable pageable = PageRequest.of(page, size + exclusions.pinIds().size() + exclusions.userIds().size() + exclusions.categoryIds().size());
+
+        List<Pin> filtered = pinRepository
+                .findByCategoryIdAndDeletedFalseAndAlbumOnlyFalse(category.getId(), pageable)
+                .getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .limit(size)
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                PageRequest.of(page, size), filtered.size());
     }
 
     @Override
@@ -362,10 +398,20 @@ public class PinsServiceImpl implements PinsService{
     public Page<PinResponse> getPinsByCategorySlug(String slug, int page, int size, Long currentUserId) {
         Category category = categoryRepository.findBySlug(slug)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        Pageable pageable = PageRequest.of(page, size);
-        return pinRepository
-                .findByCategoryIdAndDeletedFalse(category.getId(), pageable)
-                .map(p -> toResponse(p, currentUserId));
+
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable pageable = PageRequest.of(page, size + exclusions.pinIds().size());
+
+        List<Pin> filtered = pinRepository
+                .findByCategoryIdAndDeletedFalseAndAlbumOnlyFalse(category.getId(), pageable)
+                .getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .limit(size)
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                PageRequest.of(page, size), filtered.size());
     }
 
     @Override
@@ -428,6 +474,8 @@ public class PinsServiceImpl implements PinsService{
     public CommentResponse replyToComment(Long pinId, Long parentCommentId, CommentRequest request, Long currentUserId) {
         Pin pin = pinRepository.findById(pinId)
                 .orElseThrow(() -> new RuntimeException("Pin not found"));
+
+        restrictionService.assertNotRestricted(pin.getUser().getId(), currentUserId, RestrictionType.COMMENT);
 
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -584,11 +632,25 @@ public class PinsServiceImpl implements PinsService{
         return pinShareRepository.countDistinctSharersByPinId(pinId);
     }
 
+//    @Override
+//    @Transactional(readOnly = true)
+//    public List<PinResponse> getTopPins(int limit, Long currentUserId) {
+//        return pinRepository.findByDeletedFalseAndSuspendedFalseAndAlbumOnlyFalse()
+//                .stream()
+//                .map(p -> toResponse(p, currentUserId))
+//                .sorted(Comparator.comparingInt(
+//                        (PinResponse p) -> p.getLikeCount() + p.getCommentCount() + p.getShareCount() + p.getSaveCount()
+//                ).reversed())
+//                .limit(limit)
+//                .toList();
+//    }
     @Override
     @Transactional(readOnly = true)
     public List<PinResponse> getTopPins(int limit, Long currentUserId) {
-        return pinRepository.findByDeletedFalseAndSuspendedFalse()
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        return pinRepository.findByDeletedFalseAndSuspendedFalseAndAlbumOnlyFalse()
                 .stream()
+                .filter(p -> !exclusions.excludes(p))
                 .map(p -> toResponse(p, currentUserId))
                 .sorted(Comparator.comparingInt(
                         (PinResponse p) -> p.getLikeCount() + p.getCommentCount() + p.getShareCount() + p.getSaveCount()
@@ -601,7 +663,7 @@ public class PinsServiceImpl implements PinsService{
     @Transactional(readOnly = true)
     public List<PinResponse> getTopPinsByUser(Long userId, int limit, Long currentUserId) {
         return pinRepository
-                .findByUserIdAndDeletedFalseOrderByCreatedAtDesc(userId, Pageable.unpaged())
+                .findByUserIdAndDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(userId, Pageable.unpaged())
                 .getContent()
                 .stream()
                 .map(p -> toResponse(p, currentUserId))
@@ -612,37 +674,177 @@ public class PinsServiceImpl implements PinsService{
                 .toList();
     }
 
+//    @Override
+//    @Transactional(readOnly = true)
+//    public Page<PinResponse> getRelatedPins(Long pinId, int page, int size, Long currentUserId) {
+//        Pin pin = findActivePin(pinId);
+//        Pageable pageable = PageRequest.of(page, size);
+//
+//        // Priority 1: Same category
+//        if (pin.getCategory() != null) {
+//            Page<Pin> byCategory = pinRepository.findRelatedByCategory(
+//                    pin.getCategory().getId(), pinId, pageable
+//            );
+//            if (byCategory.hasContent()) {
+//                return byCategory.map(p -> toResponse(p, currentUserId));
+//            }
+//        }
+//
+//        if (pin.getTags() != null && !pin.getTags().isBlank()) {
+//            String pattern = Arrays.stream(pin.getTags().split(","))
+//                    .map(String::trim)
+//                    .collect(Collectors.joining("|")); // regex OR pattern
+//
+//            Page<Pin> byTags = pinRepository.findRelatedByTagsNative(pinId, pattern, pageable);
+//            if (byTags.hasContent()) {
+//                return byTags.map(p -> toResponse(p, currentUserId));
+//            }
+//        }
+//
+//        // Fallback: Latest pins
+//        return pinRepository
+//                .findByDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(pageable)
+//                .map(p -> toResponse(p, currentUserId));
+//    }
+
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> getRelatedPins(Long pinId, int page, int size, Long currentUserId) {
         Pin pin = findActivePin(pinId);
         Pageable pageable = PageRequest.of(page, size);
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
 
         // Priority 1: Same category
         if (pin.getCategory() != null) {
-            Page<Pin> byCategory = pinRepository.findRelatedByCategory(
-                    pin.getCategory().getId(), pinId, pageable
-            );
-            if (byCategory.hasContent()) {
-                return byCategory.map(p -> toResponse(p, currentUserId));
+            List<Pin> byCategory = pinRepository.findRelatedByCategory(pin.getCategory().getId(), pinId, pageable)
+                    .getContent().stream()
+                    .filter(p -> !exclusions.excludes(p))
+                    .toList();
+            if (!byCategory.isEmpty()) {
+                return new org.springframework.data.domain.PageImpl<>(
+                        byCategory.stream().map(p -> toResponse(p, currentUserId)).toList(), pageable, byCategory.size());
             }
         }
 
         // Priority 2: Matching tags
         if (pin.getTags() != null && !pin.getTags().isBlank()) {
-            List<String> tagList = List.of(pin.getTags().split(","));
-            Page<Pin> byTags = pinRepository.findRelatedByTags(
-                    tagList, pinId, pageable
-            );
-            if (byTags.hasContent()) {
-                return byTags.map(p -> toResponse(p, currentUserId));
+            String pattern = Arrays.stream(pin.getTags().split(","))
+                    .map(String::trim)
+                    .collect(Collectors.joining("|")); // regex OR pattern
+
+            List<Pin> byTags = pinRepository.findRelatedByTagsNative(pinId, pattern, pageable)
+                    .getContent().stream()
+                    .filter(p -> !exclusions.excludes(p))
+                    .toList();
+            if (!byTags.isEmpty()) {
+                return new org.springframework.data.domain.PageImpl<>(
+                        byTags.stream().map(p -> toResponse(p, currentUserId)).toList(), pageable, byTags.size());
             }
         }
 
         // Fallback: Latest pins
-        return pinRepository
-                .findByDeletedFalseOrderByCreatedAtDesc(pageable)
-                .map(p -> toResponse(p, currentUserId));
+        List<Pin> fallback = pinRepository
+                .findByDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(pageable)
+                .getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                fallback.stream().map(p -> toResponse(p, currentUserId)).toList(), pageable, fallback.size());
+    }
+
+    // ─── Download Pin ─────────────────────────────────────────────────────────
+    @Override
+    @Transactional
+    public DownloadResponse trackPinDownload(Long pinId, Long currentUserId) throws IOException{
+        Pin pin = findActivePin(pinId);
+        User user = currentUserId != null
+                ? userRepository.findById(currentUserId).orElse(null)
+                : null;
+
+        java.net.URL url = new java.net.URL(pin.getImageUrl());
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("HEAD");
+        int responseCode = connection.getResponseCode();   // ← can throw IOException
+        connection.disconnect();
+
+        if (responseCode != 200) {
+            throw new IOException("Image unavailable for pin " + pinId + " (HTTP " + responseCode + ")");
+        }
+
+        pinDownloadRepository.save(new PinDownload(pin, user));
+
+        if (user != null && !pin.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    pin.getUser(),
+                    user,
+                    "DOWNLOAD",
+                    user.getFullName() + " downloaded your pin \"" + pin.getTitle() + "\"",
+                    "/pin/" + pinId
+            );
+        }
+
+        return DownloadResponse.builder()
+                .id(pinId)
+                .downloadUrl(pin.getImageUrl())
+                .totalDownloads(pinDownloadRepository.countByPinId(pinId))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getMostSavedPins(int limit, Long currentUserId) {
+        return pinRepository.findMostSaved(PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getMostSharedPins(int limit, Long currentUserId) {
+        return pinRepository.findMostShared(PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getMostDownloadedPins(int limit, Long currentUserId) {
+        return pinRepository.findMostDownloaded(PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getMostViewedPins(int limit, Long currentUserId) {
+        return pinRepository.findMostViewed(PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getUserMostSavedPins(Long userId, int limit, Long currentUserId) {
+        return pinRepository.findMostSavedByUser(userId, PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getUserMostSharedPins(Long userId, int limit, Long currentUserId) {
+        return pinRepository.findMostSharedByUser(userId, PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getUserMostDownloadedPins(Long userId, int limit, Long currentUserId) {
+        return pinRepository.findMostDownloadedByUser(userId, PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PinResponse> getUserMostViewedPins(Long userId, int limit, Long currentUserId) {
+        return pinRepository.findMostViewedByUser(userId, PageRequest.of(0, limit))
+                .stream().map(p -> toResponse(p, currentUserId)).toList();
     }
 
 
@@ -689,7 +891,6 @@ public class PinsServiceImpl implements PinsService{
         // null until likes/comments are implemented
         r.setLikeCount((int) likeRepository.countByPinId(pin.getId()));
         r.setCommentCount((int) commentRepository.countByPinIdAndDeletedFalse(pin.getId()));
-        // Did the current user like this?
         r.setLikedByCurrentUser(
                 currentUserId != null &&
                         likeRepository.existsByUserIdAndPinId(currentUserId, pin.getId())
@@ -702,6 +903,8 @@ public class PinsServiceImpl implements PinsService{
                 currentUserId != null &&
                         savedPinRepository.existsByUserIdAndPinId(currentUserId, pin.getId())
         );
+        r.setDownloadCount((int) pinDownloadRepository.countByPinId(pin.getId()));
+        r.setViewCount(pin.getViewCount());
 
         return r;
     }

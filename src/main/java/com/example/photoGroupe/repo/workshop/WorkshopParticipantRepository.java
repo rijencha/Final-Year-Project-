@@ -4,6 +4,7 @@ import com.example.photoGroupe.model.workshop.WorkshopParticipant;
 import com.example.photoGroupe.model.workshop.WorkshopParticipantStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,8 @@ public interface WorkshopParticipantRepository extends JpaRepository<WorkshopPar
     List<WorkshopParticipant> findByParticipantIdAndStatus(Long participantId, WorkshopParticipantStatus status);
 
     List<WorkshopParticipant> findByWorkshopId(Long workshopId);
+
+    List<WorkshopParticipant> findByWorkshopIdAndStatus(Long workshopId, WorkshopParticipantStatus status);
+
+    List<WorkshopParticipant> findByStatusAndRegisteredAtBefore(WorkshopParticipantStatus status, LocalDateTime cutoff);
 }

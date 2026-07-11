@@ -10,6 +10,7 @@ public class PinRequest {
     private Long   categoryId;
     private String categorySlug;   // add
     private String categoryName;   // add
+    private boolean standalone = true;
 
     public MultipartFile getImage()          { return image; }
     public String getTitle()                 { return title; }
@@ -18,6 +19,14 @@ public class PinRequest {
     public Long   getCategoryId()            { return categoryId; }
     public String getCategorySlug()          { return categorySlug; }
     public String getCategoryName()          { return categoryName; }
+
+    public boolean isStandalone() {
+        return standalone;
+    }
+
+    public void setStandalone(boolean standalone) {
+        this.standalone = standalone;
+    }
 
     public void setImage(MultipartFile image)          { this.image = image; }
     public void setTitle(String title)                 { this.title = title; }

@@ -11,10 +11,11 @@ import com.example.photoGroupe.security.JwtService;
 import com.example.photoGroupe.security.RefreshTokenService;
 import com.example.photoGroupe.service.email.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -122,18 +123,49 @@ public class AuthServiceImpl implements AuthService{
 //        return buildAuthResponse(user, accessToken, refreshToken.getToken(), "Login successful");
 //    }
 
+//    @Override
+//    public AuthResponse login(LoginRequest request) {
+//
+//        authenticationManager.authenticate(
+//                new UsernamePasswordAuthenticationToken(
+//                        request.getEmail(),
+//                        request.getPassword()
+//                )
+//        );
+//
+//        User user = userRepository.findByEmail(request.getEmail())
+//                .orElseThrow(() -> new RuntimeException("User not found"));
+//
+//        // ── Generate tokens ───────────────────────────────────────────────
+//        String accessToken = jwtService.generateAccessToken(user);
+//        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+//
+//        return buildAuthResponse(user, accessToken, refreshToken.getToken(), "Login successful");
+//    }
     @Override
     public AuthResponse login(LoginRequest request) {
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+        } catch (DisabledException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your account has been suspended. Please contact an administrator for assistance.");
+        } catch (LockedException e) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your account is locked. Please contact an administrator.");
+        } catch (BadCredentialsException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Incorrect email or password.");
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Incorrect email or password."));
 
         // ── Generate tokens ───────────────────────────────────────────────
         String accessToken = jwtService.generateAccessToken(user);

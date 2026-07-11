@@ -1,5 +1,6 @@
 package com.example.photoGroupe.controller.user;
 
+import com.example.photoGroupe.dto.auth.ChangePasswordRequest;
 import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
 import com.example.photoGroupe.dto.eventandbid.SpecializationRequest;
@@ -26,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -39,7 +41,11 @@ public class UserController {
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<UserSummary> getPublicUserProfile(@PathVariable Long id) {
+    public ResponseEntity<UserSummary> getPublicUserProfile(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        userService.recordProfileView(id, userDetails.getId());
         return ResponseEntity.ok(userService.getPublicUserById(id));
     }
 
@@ -75,7 +81,11 @@ public class UserController {
     // Full public profile of a specific photographer
     @GetMapping("/photographers/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<PhotographerDetail> getPhotographerDetail(@PathVariable Long id) {
+    public ResponseEntity<PhotographerDetail> getPhotographerDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        userService.recordProfileView(id, userDetails.getId());
         return ResponseEntity.ok(userService.getPhotographerDetail(id));
     }
 
@@ -141,6 +151,14 @@ public class UserController {
             @PathVariable Long id) {
         service.removeCustomSpecialization(userDetails.getUser(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        userService.changePassword(currentUser.getUser().getId(), request, currentUser.getUser());
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 
 }

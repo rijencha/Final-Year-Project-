@@ -22,5 +22,7 @@ public class UserSummary {
     private boolean deleted;
     private String profilePicture;
     private LocalDateTime joinedAt;
+    private LocalDateTime deletedAt;    // ← added
     private long pinCount;
+    private long profileViewCount;
 }

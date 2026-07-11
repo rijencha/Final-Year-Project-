@@ -11,11 +11,13 @@ import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.chatting.Conversation;
 import com.example.photoGroupe.model.chatting.Message;
 import com.example.photoGroupe.model.chatting.MessageType;
+import com.example.photoGroupe.model.restrict.RestrictionType;
 import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.chatting.ConversationRepository;
 import com.example.photoGroupe.repo.chatting.MessageRepository;
 import com.example.photoGroupe.repo.payment.BookingPackageRepository;
+import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,11 +43,13 @@ public class MessageServiceImpl implements  MessageService{
     private final SimpMessagingTemplate messagingTemplate;  // WebSocket pusher
     private final Cloudinary  cloudinary;
     private final BookingPackageRepository packageRepository;
+    private final UserRestrictionService restrictionService;
 
     @Override
     @Transactional
     public MessageResponse sendMessage(SendMessageRequest request, Long senderId) {
 
+        restrictionService.assertNotRestricted(request.getReceiverId(), senderId, RestrictionType.CHAT);
         User sender   = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
         User receiver = userRepository.findById(request.getReceiverId())
@@ -162,6 +166,7 @@ public class MessageServiceImpl implements  MessageService{
     @Transactional
     public MessageResponse sendImageMessage(Long receiverId, MultipartFile image,
                                             Long senderId) throws IOException {
+        restrictionService.assertNotRestricted(receiverId, senderId, RestrictionType.CHAT);
         User sender   = userRepository.findById(senderId)
                 .orElseThrow(() -> new RuntimeException("Sender not found"));
         User receiver = userRepository.findById(receiverId)
@@ -279,7 +284,7 @@ public class MessageServiceImpl implements  MessageService{
                 .otherUsername(other.getActualUsername())
                 .otherProfilePicture(other.getProfilePicture())
                 .lastMessage(lastMessage)
-                .lastMessageObj(lastMessageObj)   // ← full message with package
+                .lastMessageObj(lastMessageObj)
                 .lastMessageAt(c.getUpdatedAt())
                 .unreadCount(unread)
                 .build();

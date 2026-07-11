@@ -1,9 +1,13 @@
 package com.example.photoGroupe.controller.admin;
 
 import com.example.photoGroupe.dto.admin.CreateAdminRequest;
+import com.example.photoGroupe.dto.admin.UpdateAdminPasswordRequest;
+import com.example.photoGroupe.dto.booking.EventTypeBookingResponse;
+import com.example.photoGroupe.dto.booking.SpecializationBookingResponse;
 import com.example.photoGroupe.dto.detail.UserSummary;
 import com.example.photoGroupe.dto.photographer.PhotographerVerificationResponse;
 import com.example.photoGroupe.model.VerificationStatus;
+import com.example.photoGroupe.model.booking.BookingStatus;
 import com.example.photoGroupe.service.admin.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -98,12 +102,52 @@ public class AdminController {
 //    }
 
     @GetMapping("/photographers")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<List<PhotographerVerificationResponse>> getAllPhotographers() {
         return ResponseEntity.ok(adminService.getAllPhotographers());
     }
 
     @GetMapping("/photographers/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<PhotographerVerificationResponse> getPhotographerById(@PathVariable Long id) {
         return ResponseEntity.ok(adminService.getPhotographerById(id));
     }
+
+    @GetMapping("/booking/event-type")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public List<EventTypeBookingResponse> getAllGroupedByEventType(
+            @RequestParam(required = false) BookingStatus status) {
+        return adminService.getBookingsGroupedByEventType(status);
+    }
+
+    @GetMapping("/booking/event-type/{eventTypeName}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public EventTypeBookingResponse getByEventType(
+            @PathVariable String eventTypeName,
+            @RequestParam(required = false) BookingStatus status) {
+        return adminService.getBookingsByEventType(eventTypeName, status);
+    }
+
+    // ─── Admin lifecycle management (SUPER_ADMIN only) ─────────────────────
+
+    @PutMapping("/{adminId}/password")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<UserSummary> updateAdminPassword(
+            @PathVariable Long adminId,
+            @RequestBody UpdateAdminPasswordRequest request) {
+        return ResponseEntity.ok(adminService.updateAdminPassword(adminId, request.getNewPassword()));
+    }
+
+    @PutMapping("/{adminId}/revoke")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<UserSummary> revokeAdmin(@PathVariable Long adminId) {
+        return ResponseEntity.ok(adminService.revokeAdmin(adminId));
+    }
+
+    @GetMapping("/list")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN')")
+    public ResponseEntity<List<UserSummary>> getAllAdmins() {
+        return ResponseEntity.ok(adminService.getAllAdmins());
+    }
+
 }

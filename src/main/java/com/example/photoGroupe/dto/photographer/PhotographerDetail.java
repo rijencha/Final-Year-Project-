@@ -27,8 +27,11 @@ public class PhotographerDetail {
     private String phoneNumber;
     private long pinCount;
     private double averageRating;
+    private long profileViewCount;
     private List<ReviewResponse> recentReviews;
     private long reviewCount;   // total reviews with a comment
     private long ratingCount;   // total entries (rating or comment)
+    private boolean promoted = false;
+    private LocalDateTime boostEndAt;   // null when not currently boosted
 }
 

@@ -1,6 +1,7 @@
 package com.example.photoGroupe.model.booking;
 
 import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.model.workshop.Workshop;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,24 +15,31 @@ public class Payout {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false, unique = true)
+    @JoinColumn(name = "booking_id", unique = true)
     private Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "photographer_id", nullable = false)
+    @JoinColumn(name = "workshop_id")
+    private Workshop workshop;
+
+    @Column(name = "source_type", nullable = false)
+    private String sourceType; // "BOOKING", "WORKSHOP", "BANNER", "BOOST"
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "photographer_id", nullable = true)   // ✅ now nullable — banners have no photographer
     private User photographer;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal totalAmount;       // full booking price
+    private BigDecimal totalAmount;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal commissionAmount;  // 12%
+    private BigDecimal commissionAmount;
 
     @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal photographerAmount; // 88%
+    private BigDecimal photographerAmount;
 
     @Column(nullable = false)
-    private String status; // PENDING, RELEASED
+    private String status;
 
     @Column(name = "released_at")
     private LocalDateTime releasedAt;
@@ -60,4 +68,10 @@ public class Payout {
     public void setPhotographerAmount(BigDecimal a)  { this.photographerAmount = a; }
     public void setStatus(String s)                  { this.status = s; }
     public void setReleasedAt(LocalDateTime t)       { this.releasedAt = t; }
+
+    public Workshop getWorkshop() { return workshop; }
+    public void setWorkshop(Workshop workshop) { this.workshop = workshop; }
+
+    public String getSourceType() { return sourceType; }
+    public void setSourceType(String sourceType) { this.sourceType = sourceType; }
 }

@@ -32,6 +32,18 @@ public class WorkshopParticipant {
     @JoinColumn(name = "participant_id", nullable = false)
     private User participant;
 
+    @Column(name = "registrant_name", nullable = false)
+    private String registrantName;
+
+    @Column(name = "registrant_email", nullable = false)
+    private String registrantEmail;
+
+    @Column(name = "registrant_phone", nullable = false)
+    private String registrantPhone;
+
+    @Column(name = "notes")
+    private String notes;
+
     // ─── Payment ──────────────────────────────────────────────────────────
 
     /** eSewa transaction UUID — set after initiatePayment */
@@ -65,9 +77,39 @@ public class WorkshopParticipant {
     public LocalDateTime getRegisteredAt()              { return registeredAt; }
     public LocalDateTime getPaidAt()                    { return paidAt; }
 
+    public String getRegistrantName() {
+        return registrantName;
+    }
+
+    public String getRegistrantEmail() {
+        return registrantEmail;
+    }
+
+    public String getRegistrantPhone() {
+        return registrantPhone;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
     public void setWorkshop(Workshop workshop)                      { this.workshop = workshop; }
     public void setParticipant(User participant)                    { this.participant = participant; }
     public void setTransactionUuid(String transactionUuid)         { this.transactionUuid = transactionUuid; }
     public void setStatus(WorkshopParticipantStatus status)        { this.status = status; }
     public void setPaidAt(LocalDateTime paidAt)                    { this.paidAt = paidAt; }
+
+    public void setRegistrantName(String registrantName) {
+        this.registrantName = registrantName;
+    }
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+    public void setRegistrantPhone(String registrantPhone) {
+        this.registrantPhone = registrantPhone;
+    }
+    public void setRegistrantEmail(String registrantEmail) {
+        this.registrantEmail = registrantEmail;
+    }
+
 }

@@ -19,4 +19,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     // Replies for a given parent comment
     List<Comment> findByParentIdOrderByCreatedAtAsc(Long parentId);
+    Page<Comment> findByPinIdAndParentIsNullAndDeletedFalseOrderByCreatedAtAsc(Long pinId, Pageable pageable);
+
 }

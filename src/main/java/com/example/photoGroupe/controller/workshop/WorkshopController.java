@@ -1,5 +1,6 @@
 package com.example.photoGroupe.controller.workshop;
 
+import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.workshop.WorkshopStatus;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.workshop.WorkshopService;
@@ -8,11 +9,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -46,23 +51,23 @@ public class WorkshopController {
         return ResponseEntity.ok(workshopService.myWorkshops(currentUser));
     }
 
-    @PostMapping
-    @PreAuthorize("hasRole('PHOTOGRAPHER')")
-    public ResponseEntity<WorkshopDetailResponse> create(
-            @RequestBody WorkshopRequest request,
-            @AuthenticationPrincipal CustomUserDetails currentUser
-    ) throws Exception {
-        return ResponseEntity.ok(workshopService.createWorkshop(request, currentUser));
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<WorkshopDetailResponse> createWorkshop(
+            @RequestPart("request") WorkshopRequest req,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        return ResponseEntity.ok(workshopService.createWorkshop(req, coverImage, currentUser));
     }
 
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PHOTOGRAPHER')")
-    public ResponseEntity<WorkshopDetailResponse> update(
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<WorkshopDetailResponse> updateWorkshop(
             @PathVariable Long id,
-            @RequestBody WorkshopRequest request,
-            @AuthenticationPrincipal CustomUserDetails currentUser
-    ) throws Exception {
-        return ResponseEntity.ok(workshopService.updateWorkshop(id, request, currentUser));
+            @RequestPart("request") WorkshopRequest req,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+
+        return ResponseEntity.ok(workshopService.updateWorkshop(id, req, coverImage, currentUser));
     }
 
     @PatchMapping("/{id}/status")
@@ -94,6 +99,30 @@ public class WorkshopController {
         return ResponseEntity.ok(workshopService.getParticipants(id, currentUser));
     }
 
-    // ─── Participant: eSewa Payment ───────────────────────────────────────
+    @GetMapping("/{id}/registration-defaults")
+    public ResponseEntity<WorkshopRegistrationRequest> getRegistrationDefaults(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        User u = currentUser.getUser();
+        return ResponseEntity.ok(new WorkshopRegistrationRequest(
+                u.getFullName(), u.getEmail(), u.getPhoneNumber(), null
+        ));
+    }
+
+    @PostMapping("/{id}/register")
+    public ResponseEntity<Long> register(
+            @PathVariable Long id,
+            @RequestBody WorkshopRegistrationRequest req,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        Long participantId = workshopService.registerParticipant(id, req, currentUser);
+        return ResponseEntity.ok(participantId); // frontend uses this to call payment initiate next
+    }
+
+    @GetMapping("/{id}/my-registration")
+    public ResponseEntity<ParticipantResponse> getMyRegistration(
+            @PathVariable Long id,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(workshopService.getMyRegistration(id, currentUser));
+    }
 
 }

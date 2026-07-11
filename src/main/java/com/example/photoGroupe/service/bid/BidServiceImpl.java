@@ -200,6 +200,18 @@ public class BidServiceImpl implements BidService {
         bidRepository.save(bid);
     }
 
+    @Override
+    public List<BidResponse> getPublicBidsForEvent(Long eventId) {
+        if (!eventRequestRepository.existsById(eventId))
+            throw new RuntimeException("Event not found");
+
+        return bidRepository.findByEventRequestId(eventId)
+                .stream()
+                .filter(b -> b.getStatus() != BidStatus.WITHDRAWN) // don't surface withdrawn bids
+                .map(BidResponse::new)
+                .toList();
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
     private Bid findAndValidatePhotographer(Long bidId, Long photographerId) {
         Bid bid = bidRepository.findById(bidId)

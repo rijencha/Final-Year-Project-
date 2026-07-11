@@ -4,5 +4,5 @@ public enum WorkshopStatus {
     UPCOMING,    // not yet started, registrations open
     ONGOING,     // currently in progress
     COMPLETED,   // finished
-    CANCELLED    // photographer or admin cancelled
+    OPEN, CANCELLED    // photographer or admin cancelled
 }

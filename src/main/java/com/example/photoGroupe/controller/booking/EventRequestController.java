@@ -31,6 +31,11 @@ public class EventRequestController {
         return ResponseEntity.ok(eventRequestService.create(currentUser.getUser(), dto));
     }
 
+    @GetMapping("/{eventId}")
+    public ResponseEntity<EventRequestResponse> getById(@PathVariable Long eventId) {
+        return ResponseEntity.ok(new EventRequestResponse(eventRequestService.findById(eventId), null));
+    }
+
     // Client — my event requests
     @GetMapping("/my")
     public ResponseEntity<Page<EventRequestResponse>> myRequests(

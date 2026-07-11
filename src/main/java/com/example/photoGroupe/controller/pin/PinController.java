@@ -1,5 +1,6 @@
 package com.example.photoGroupe.controller.pin;
 
+import com.example.photoGroupe.dto.album.DownloadResponse;
 import com.example.photoGroupe.dto.pins.*;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.security.CustomUserDetails;
@@ -26,11 +27,9 @@ import java.util.Map;
 public class PinController {
 
     private final PinsService pinsService;
-    private final UserService userService;
 
     // ─── Create ───────────────────────────────────────────────────────────
 
-    // POST /api/pins   (multipart/form-data)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PinResponse> createPin(
             @RequestPart("image") MultipartFile image,
@@ -298,7 +297,6 @@ public class PinController {
         return ResponseEntity.ok(pinsService.getSavedPins(page, size, currentUser.getId()));
     }
 
-    // GET /api/pins/{pinId}/shares/count
     @GetMapping("/{pinId}/shares/count")
     public ResponseEntity<Map<String, Long>> getShareCount(@PathVariable Long pinId) {
         return ResponseEntity.ok(Map.of("shareCount", pinsService.getShareCount(pinId)));
@@ -316,7 +314,16 @@ public class PinController {
             @PathVariable Long userId,
             @RequestParam(defaultValue = "6") int limit,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long currentUserId = userDetails.getUser().getId();
+        Long currentUserId = userDetails != null ? userDetails.getId() : null;
         return ResponseEntity.ok(pinsService.getTopPinsByUser(userId, limit, currentUserId));
+    }
+
+    @PostMapping("/{pinId}/download")
+    public ResponseEntity<DownloadResponse> downloadPin(
+            @PathVariable Long pinId,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) throws IOException {
+        Long userId = currentUser != null ? currentUser.getId() : null;
+        return ResponseEntity.ok(pinsService.trackPinDownload(pinId, userId));
     }
 }

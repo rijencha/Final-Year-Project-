@@ -44,4 +44,37 @@ public class CloudinaryService {
                 )
         );
     }
+
+    public String uploadWorkshopCover(MultipartFile file, Long workshopId) throws IOException {
+        Map<?, ?> result = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap(
+                        "folder",        "photogroupe/workshops",
+                        "public_id",     "workshop_cover_" + workshopId,
+                        "overwrite",     true,
+                        "resource_type", "image"
+                )
+        );
+        return (String) result.get("secure_url");
+    }
+
+    public String[] uploadAlbumCover(MultipartFile file, Long userId) throws IOException {
+        String publicId = "photogroupe/albums/cover_" + userId + "_" + System.currentTimeMillis();
+
+        Map<?, ?> result = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap(
+                        "public_id",     publicId,
+                        "overwrite",     false,
+                        "resource_type", "image",
+                        "quality",       "auto",
+                        "fetch_format",  "auto"
+                )
+        );
+
+        return new String[]{
+            (String) result.get("secure_url"),
+                (String) result.get("public_id")
+        };
+    }
 }

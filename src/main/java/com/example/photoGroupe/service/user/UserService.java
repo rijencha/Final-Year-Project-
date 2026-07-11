@@ -1,5 +1,6 @@
 package com.example.photoGroupe.service.user;
 
+import com.example.photoGroupe.dto.auth.ChangePasswordRequest;
 import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
@@ -21,4 +22,6 @@ public interface UserService {
     UserSummary upgradeToPhotographer(Long userId, UpgradeToPhotographerRequest request);
     void updateInterests(Long userId, List<String> interests, Long currentUserId);
     List<PhotographerDetail> getTopPhotographers(int limit);
+    void recordProfileView(Long profileOwnerId, Long viewerId);
+    void changePassword(Long userId, ChangePasswordRequest request, User currentUser);
 }

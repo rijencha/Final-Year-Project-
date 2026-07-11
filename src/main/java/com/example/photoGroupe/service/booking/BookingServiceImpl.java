@@ -316,6 +316,7 @@ public class BookingServiceImpl implements BookingService {
         payout.setCommissionAmount(commission);
         payout.setPhotographerAmount(photographerPayout);
         payout.setStatus("RELEASED");
+        payout.setSourceType("BOOKING");
         payout.setReleasedAt(LocalDateTime.now());
         payoutRepository.save(payout);
 

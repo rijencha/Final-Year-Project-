@@ -29,6 +29,9 @@ public class Pin {
 
     private String tags;              // comma-separated, e.g. "sunset,travel,nepal"
 
+    @Column(name = "view_count", nullable = false)
+    private long viewCount = 0;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
@@ -52,6 +55,9 @@ public class Pin {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Column(name = "album_only", nullable = false)
+    private boolean albumOnly = false;
 
     @OneToMany(mappedBy = "pin", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -118,6 +124,8 @@ public class Pin {
     public String getSuspensionReason()     { return suspensionReason; }
     public LocalDateTime getSuspendedAt()   { return suspendedAt; }
     public User getSuspendedBy()            { return suspendedBy; }
+    public long getViewCount()              { return viewCount; }
+    public boolean isAlbumOnly()            { return albumOnly; }
 
     // Setters
     public void setSuspended(boolean s)             { this.suspended = s; }
@@ -132,7 +140,10 @@ public class Pin {
     public void setTags(String tags)                 { this.tags = tags; }
     public void setUser(User user)                   { this.user = user; }
     public void setDeleted(boolean deleted)          { this.deleted = deleted; }
+    public void setViewCount(long viewCount){ this.viewCount = viewCount; }
+    public void setAlbumOnly(boolean b)     { this.albumOnly = b; }
 
+    public void incrementViewCount()        { this.viewCount++; }
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

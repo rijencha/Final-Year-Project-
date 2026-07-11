@@ -30,25 +30,72 @@ public class EsewaPaymentController {
         );
     }
 
+    @PostMapping("/workshop/initiate/{workshopId}")
+    public ResponseEntity<EsewaFormData> initiateWorkshopPayment(
+            @PathVariable Long workshopId,
+            @AuthenticationPrincipal CustomUserDetails currentUser) throws Exception {
+        return ResponseEntity.ok(
+                esewaPaymentService.initiateWorkshopPayment(workshopId, currentUser)
+        );
+    }
+
+    @PostMapping("/banner/initiate/{bannerId}")
+    public ResponseEntity<EsewaFormData> initiateBannerPayment(
+            @PathVariable Long bannerId,
+            @AuthenticationPrincipal CustomUserDetails currentUser) throws Exception {
+        return ResponseEntity.ok(
+                esewaPaymentService.initiateBannerPayment(bannerId, currentUser)
+        );
+    }
+
+    @PostMapping("/boost/initiate/{boostId}")
+    public ResponseEntity<EsewaFormData> initiateBoostPayment(
+            @PathVariable Long boostId,
+            @AuthenticationPrincipal CustomUserDetails currentUser) throws Exception {
+        return ResponseEntity.ok(
+                esewaPaymentService.initiateBoostPayment(boostId, currentUser)
+        );
+    }
+
     // eSewa redirects here on success (with ?data=<base64>)
     @GetMapping("/success")
     public void success(@RequestParam String data, HttpServletResponse response) throws Exception {
-        System.out.println("=== eSewa success callback received ===");
-        System.out.println("data param: " + data);
         try {
-            esewaPaymentService.verifyAndCompletePayment(data);
-            System.out.println("=== Payment verified and completed ===");
+            esewaPaymentService.verifyPayment(data);   // ← unified method
             response.sendRedirect("http://localhost:5173/payment/esewa/success");
         } catch (Exception e) {
-            System.out.println("=== Payment verification FAILED: " + e.getMessage() + " ===");
-            e.printStackTrace();
             response.sendRedirect("http://localhost:5173/payment/esewa/failure?reason="
                     + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8));
         }
     }
 
     @GetMapping("/failure")
-    public void failure(HttpServletResponse response) throws IOException {
+    public void failure(
+            @RequestParam(required = false) Long bookingId,
+            @RequestParam(required = false) Long workshopId,
+            @RequestParam(required = false) Long bannerId,
+            @RequestParam(required = false) Long boostId,
+            HttpServletResponse response) throws IOException {
+
+        try {
+            if (bookingId != null)
+                esewaPaymentService.cancelPendingPayment(bookingId);
+
+            if (workshopId != null)
+                esewaPaymentService.cancelPendingWorkshopPayment(workshopId);
+
+            if (bannerId != null)
+                esewaPaymentService.cancelPendingBannerPayment(bannerId);
+
+            if (boostId != null)
+                esewaPaymentService.cancelPendingBoostPayment(boostId);
+        } catch (Exception e) {
+            // Log it so you can still see what went wrong server-side
+            e.printStackTrace();
+            // still redirect the user, don't leave them on a blank 500 page
+        }
+
         response.sendRedirect("http://localhost:5173/payment/esewa/failure");
     }
+
 }

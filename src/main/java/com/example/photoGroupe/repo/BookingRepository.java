@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -50,4 +51,29 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     long countByClientIdAndStatus(Long clientId, BookingStatus status);
     long countByPhotographerId(Long photographerId);
     Optional<Booking> findByTransactionId(String transactionId);
+
+    /**
+     * All bookings (optionally filtered by status) for event-type grouping.
+     * Grouping itself happens in the service layer since eventType (enum)
+     * and customEventType (String) can't be safely COALESCE'd in JPQL.
+     */
+    @Query("""
+        SELECT b FROM Booking b
+        WHERE (:status IS NULL OR b.status = :status)
+        ORDER BY b.eventType ASC NULLS LAST, b.createdAt DESC
+        """)
+    List<Booking> findAllForEventTypeGrouping(@Param("status") BookingStatus status);
+
+    @Query("""
+        SELECT b
+        FROM Booking b
+        LEFT JOIN PhotographerSpecialization ps ON ps.photographer.id = b.photographer.id
+        WHERE ((:specName = 'Uncategorized' AND ps.id IS NULL)
+           OR LOWER(COALESCE(ps.category.name, ps.customType)) = LOWER(:specName))
+          AND (:status IS NULL OR b.status = :status)
+        ORDER BY b.createdAt DESC
+        """)
+    List<Booking> findBookingsBySpecializationName(
+            @Param("specName") String specName,
+            @Param("status") BookingStatus status);
 }
