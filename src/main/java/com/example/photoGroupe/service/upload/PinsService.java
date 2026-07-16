@@ -9,6 +9,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 public interface PinsService {
 
@@ -23,7 +24,7 @@ public interface PinsService {
 
     PinResponse updatePin(Long pinId, PinRequest request, Long currentUserId) throws IOException;
 
-    Page<PinResponse> getFeed(int page, int size, Long currentUserId);
+    Page<PinResponse> getFeed(int page, int size, Long currentUserId, Set<Long> alreadyShownIds);
 
     Page<PinResponse> getUserPins(Long userId, int page, int size, Long currentUserId);
 
@@ -81,4 +82,6 @@ public interface PinsService {
     List<PinResponse> getUserMostSharedPins(Long userId, int limit, Long currentUserId);
     List<PinResponse> getUserMostDownloadedPins(Long userId, int limit, Long currentUserId);
     List<PinResponse> getUserMostViewedPins(Long userId, int limit, Long currentUserId);
+
+    Page<PinResponse> searchPins(String query, int page, int size, Long currentUserId);
 }

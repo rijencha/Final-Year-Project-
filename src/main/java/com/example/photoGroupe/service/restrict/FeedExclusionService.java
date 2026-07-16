@@ -67,16 +67,33 @@ public class FeedExclusionService {
 
     public List<FeedExclusionResponse> getMyExclusions(Long ownerId) {
         return exclusionRepository.findAllByOwnerId(ownerId).stream()
-                .map(f -> new FeedExclusionResponse(
-                        f.getId(),
-                        f.getScope(),
-                        f.getPin() != null ? f.getPin().getId() : null,
-                        f.getExcludedUser() != null ? f.getExcludedUser().getId() : null,
-                        f.getExcludedUser() != null ? f.getExcludedUser().getActualUsername() : null,
-                        f.getCategory() != null ? f.getCategory().getId() : null,
-                        f.getCategory() != null ? f.getCategory().getName() : null,
-                        f.getCreatedAt()
-                ))
+                .map(f -> {
+                    Pin pin = f.getPin();
+                    User excludedUser = f.getExcludedUser();
+                    Category category = f.getCategory();
+
+                    return new FeedExclusionResponse(
+                            f.getId(),
+                            f.getScope(),
+
+                            pin != null ? pin.getId() : null,
+                            pin != null ? pin.getTitle() : null,
+                            pin != null ? pin.getImageUrl() : null,
+                            pin != null ? pin.getUser().getId() : null,
+                            pin != null ? pin.getUser().getFullName() : null,
+
+                            excludedUser != null ? excludedUser.getId() : null,
+                            excludedUser != null ? excludedUser.getActualUsername() : null,
+                            excludedUser != null ? excludedUser.getFullName() : null,
+                            excludedUser != null ? excludedUser.getProfilePicture() : null,
+
+                            category != null ? category.getId() : null,
+                            category != null ? category.getName() : null,
+                            category != null ? category.getCoverImage() : null,
+
+                            f.getCreatedAt()
+                    );
+                })
                 .toList();
     }
 

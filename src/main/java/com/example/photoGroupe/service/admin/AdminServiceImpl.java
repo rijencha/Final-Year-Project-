@@ -492,8 +492,11 @@ public class AdminServiceImpl implements AdminService {
         banner.setEndAt(LocalDateTime.now());
         bannerAdRepository.save(banner);
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User admin = ((CustomUserDetails) authentication.getPrincipal()).getUser();
+
         notificationService.create(
-                banner.getAdvertiser(), banner.getAdvertiser(), "BANNER_REMOVED",
+                banner.getAdvertiser(), admin, "BANNER_REMOVED",
                 "Your banner \"" + banner.getTitle() + "\" was removed by an admin"
                         + (reason != null && !reason.isBlank() ? ": " + reason : "")
                         + ". Contact support if you have questions.",

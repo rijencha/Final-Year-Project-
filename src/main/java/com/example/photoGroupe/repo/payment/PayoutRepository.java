@@ -42,4 +42,8 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
     @Query("SELECT MAX(p.createdAt) FROM Payout p")
     LocalDateTime findLatestCreatedAt();
 
+    @Query("SELECT COALESCE(SUM(p.photographerAmount), 0) FROM Payout p " +
+            "WHERE p.photographer.id = :photographerId AND p.status = 'RELEASED'")
+    BigDecimal sumReleasedAmount(@Param("photographerId") Long photographerId);
+
 }

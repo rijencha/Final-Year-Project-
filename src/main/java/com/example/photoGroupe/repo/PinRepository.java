@@ -35,6 +35,15 @@ public interface PinRepository extends JpaRepository<Pin,Long> {
     )
     Page<Pin> findAllShuffled(Pageable pageable);
 
+    @Query("""
+        select p from Pin p
+        join fetch p.user
+        left join fetch p.category
+        where p.deleted = false and p.albumOnly = false
+        order by p.createdAt desc
+    """)
+    Page<Pin> findFeedWithUserAndCategory(Pageable pageable);
+
     @Query(
             value = """
     SELECT * FROM pins
@@ -121,4 +130,15 @@ public interface PinRepository extends JpaRepository<Pin,Long> {
     @Modifying
     @Query("UPDATE Pin p SET p.viewCount = p.viewCount + 1 WHERE p.id = :pinId AND p.deleted = false AND p.suspended = false")
     int incrementViewCount(@Param("pinId") Long pinId);
+
+    @Query("""
+    select p from Pin p
+        where p.deleted = false and p.suspended = false and p.albumOnly = false
+          and (
+            lower(p.title) like lower(concat('%', :q, '%'))
+            or lower(p.description) like lower(concat('%', :q, '%'))
+            or lower(p.tags) like lower(concat('%', :q, '%'))
+          )
+    """)
+    Page<Pin> search(@Param("q") String q, Pageable pageable);
 }

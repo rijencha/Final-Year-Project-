@@ -24,4 +24,6 @@ public interface UserService {
     List<PhotographerDetail> getTopPhotographers(int limit);
     void recordProfileView(Long profileOwnerId, Long viewerId);
     void changePassword(Long userId, ChangePasswordRequest request, User currentUser);
+    List<UserSummary> searchUsers(String query, int limit);
+    List<PhotographerDetail> searchPhotographers(String query, int limit);
 }

@@ -34,6 +34,7 @@ public interface WorkshopService {
 
     ParticipantResponse getMyRegistration(Long workshopId, CustomUserDetails currentUser);
 
+    Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable);
     // Admin
     Page<WorkshopSummaryResponse> listAll(Pageable pageable);
     WorkshopDetailResponse adminUpdateStatus(Long id, WorkshopStatus status, User admin);

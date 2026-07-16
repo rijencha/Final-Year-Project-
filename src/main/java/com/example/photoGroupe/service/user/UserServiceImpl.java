@@ -12,6 +12,7 @@ import com.example.photoGroupe.repo.*;
 import com.example.photoGroupe.repo.ads.PhotographerBoostRepository;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -338,6 +339,22 @@ public class UserServiceImpl implements UserService{
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+    }
+
+    @Override
+    public List<UserSummary> searchUsers(String query, int limit) {
+        return userRepository.searchByNameOrUsername(query, PageRequest.of(0, limit))
+                .stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    @Override
+    public List<PhotographerDetail> searchPhotographers(String query, int limit) {
+        return userRepository.searchPhotographers(query, PageRequest.of(0, limit))
+                .stream()
+                .map(this::toPhotographerDetail)
+                .toList();
     }
 
 
