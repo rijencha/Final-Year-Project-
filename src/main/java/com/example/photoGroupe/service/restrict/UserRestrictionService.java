@@ -79,6 +79,8 @@ public class UserRestrictionService {
                         r.getId(),
                         r.getRestricted().getId(),
                         r.getRestricted().getActualUsername(),
+                        r.getRestricted().getFullName(),
+                        r.getRestricted().getProfilePicture(),
                         r.getType(),
                         r.getCreatedAt()))
                 .toList();

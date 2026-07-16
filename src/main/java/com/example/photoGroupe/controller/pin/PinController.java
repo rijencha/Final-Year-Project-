@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/users/pins")
@@ -78,15 +80,16 @@ public class PinController {
         return ResponseEntity.ok(pinsService.getRelatedPins(pinId, page, size, currentUserId));
     }
 
-    // GET /api/pins?page=0&size=20          — home feed
     @GetMapping
     public ResponseEntity<Page<PinResponse>> getFeed(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) List<Long> excludeIds,
             @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
         Long userId = currentUser != null ? currentUser.getId() : null;
-        return ResponseEntity.ok(pinsService.getFeed(page, size, userId));
+        Set<Long> excluded = excludeIds != null ? new HashSet<>(excludeIds) : Set.of();
+        return ResponseEntity.ok(pinsService.getFeed(page, size, userId, excluded));
     }
 
     // GET /api/pins/user/{userId}?page=0&size=20   — profile grid

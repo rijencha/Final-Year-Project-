@@ -221,6 +221,11 @@ public class WorkshopServiceImpl implements WorkshopService {
                 .orElse(null);
     }
 
+    @Override
+    public Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable) {
+        return workshopRepository.search(query, pageable).map(this::toSummary);
+    }
+
     // ─── Private Helpers ──────────────────────────────────────────────────
 
     private Workshop findById(Long id) {

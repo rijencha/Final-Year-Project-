@@ -13,6 +13,7 @@ import com.example.photoGroupe.model.restrict.RestrictionType;
 import com.example.photoGroupe.repo.*;
 import com.example.photoGroupe.repo.pins.PinDownloadRepository;
 import com.example.photoGroupe.repo.pins.PinViewRepository;
+import com.example.photoGroupe.service.category.CategoryPreferenceService;
 import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.service.restrict.FeedExclusionService;
 import com.example.photoGroupe.service.restrict.UserRestrictionService;
@@ -48,6 +49,8 @@ public class PinsServiceImpl implements PinsService{
     private final PinViewRepository pinViewRepository;
     private final FeedExclusionService feedExclusionService;
     private final UserRestrictionService restrictionService;
+    private final CategoryPreferenceService categoryPreferenceService;
+
 
     @Value("${app.base-url}")          // e.g. https://yourapp.com  (set in application.properties)
     private String baseUrl;
@@ -179,69 +182,28 @@ public class PinsServiceImpl implements PinsService{
 
     @Override
     @Transactional(readOnly = true)
-    public Page<PinResponse> getFeed(int page, int size, Long currentUserId) {
-        Pageable pageable = PageRequest.of(page, size);
-        User user = userRepository.findById(currentUserId).orElseThrow();
+    public Page<PinResponse> getFeed(int page, int size, Long currentUserId, Set<Long> alreadyShownIds) {
         var exclusions = feedExclusionService.getExclusionSet(currentUserId);
-        String interestsStr = user.getInterests();
+        Map<Long, Double> weights = categoryPreferenceService.getWeightMap(currentUserId);
 
-        if (interestsStr == null || interestsStr.isBlank()) {
-            List<Pin> filtered = pinRepository
-                    .findByDeletedFalseAndAlbumOnlyFalseOrderByCreatedAtDesc(
-                            PageRequest.of(page, size + exclusions.pinIds().size() + exclusions.userIds().size() + exclusions.categoryIds().size()))
-                    .getContent().stream()
-                    .filter(p -> !exclusions.excludes(p))
-                    .limit(size)
-                    .toList();
+        int poolSize = Math.min(500, size * 8 + exclusions.pinIds().size() + alreadyShownIds.size() + 20);
 
-            return new org.springframework.data.domain.PageImpl<>(
-                    filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
-                    PageRequest.of(page, size), filtered.size());
-        }
+        List<Pin> pool = pinRepository
+                .findFeedWithUserAndCategory(PageRequest.of(0, poolSize))
+                .getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .filter(p -> !alreadyShownIds.contains(p.getId()))   // exclude what's already been served
+                .toList();
 
-        List<String> interests = List.of(interestsStr.split(","));
+        List<Pin> sampled = weightedSample(pool, weights, size);
 
-        int interestSize = (int) Math.ceil(size * 0.7);  // 14
-        int otherSize    = size - interestSize;           // 6
-
-        // Fetch a bit extra to survive de-dup losses
-        List<Pin> interestPins = pinRepository.findByInterestsRaw(
-                        interests, PageRequest.of(page, interestSize + 5))
-                .stream().filter(p -> !exclusions.excludes(p)).toList();
-
-        List<Pin> otherPins = pinRepository.findExcludingInterestsRaw(
-                        interests, PageRequest.of(page, otherSize + 5))
-                .stream().filter(p -> !exclusions.excludes(p)).toList();
-
-        // De-duplicate by pin id across both lists
-        Set<Long> seen = new java.util.LinkedHashSet<>();
-        List<Pin> merged = new java.util.ArrayList<>();
-
-        for (Pin p : interestPins) {
-            if (seen.add(p.getId())) merged.add(p);
-            if (merged.size() == interestSize) break;
-        }
-        for (Pin p : otherPins) {
-            if (seen.add(p.getId())) merged.add(p);
-            if (merged.size() == size) break;
-        }
-
-        // If interest pins didn't fill quota, backfill with more other pins
-        if (merged.size() < size) {
-            List<Pin> backfill = pinRepository.findExcludingInterestsRaw(
-                            interests, PageRequest.of(page, size))
-                    .stream().filter(p -> !exclusions.excludes(p)).toList();
-            for (Pin p : backfill) {
-                if (seen.add(p.getId())) merged.add(p);
-                if (merged.size() == size) break;
-            }
-        }
-
-        List<PinResponse> content = merged.stream()
+        List<PinResponse> content = sampled.stream()
                 .map(p -> toResponse(p, currentUserId))
                 .toList();
 
-        return new org.springframework.data.domain.PageImpl<>(content, pageable, content.size());
+        // content.size() < size (or 0) means we've run out — frontend should stop scrolling
+        return new org.springframework.data.domain.PageImpl<>(
+                content, PageRequest.of(page, size), content.size());
     }
 
     @Override
@@ -847,6 +809,22 @@ public class PinsServiceImpl implements PinsService{
                 .stream().map(p -> toResponse(p, currentUserId)).toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PinResponse> searchPins(String query, int page, int size, Long currentUserId) {
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable pageable = PageRequest.of(page, size + exclusions.pinIds().size() + 10);
+
+        List<Pin> filtered = pinRepository.search(query, pageable).getContent().stream()
+                .filter(p -> !exclusions.excludes(p))
+                .limit(size)
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(p -> toResponse(p, currentUserId)).toList(),
+                PageRequest.of(page, size), filtered.size());
+    }
+
 
     // ─── Private helpers ──────────────────────────────────────────────────
 
@@ -858,6 +836,23 @@ public class PinsServiceImpl implements PinsService{
             throw new RuntimeException("This pin has been suspended. Reason: " + pin.getSuspensionReason());
 
         return pin;
+    }
+
+    private List<Pin> weightedSample(List<Pin> pool, Map<Long, Double> categoryWeights, int size) {
+        return pool.stream()
+                .map(p -> {
+                    double w = p.getCategory() != null
+                            ? categoryWeights.getOrDefault(p.getCategory().getId(), CategoryPreferenceService.DEFAULT_WEIGHT)
+                            : CategoryPreferenceService.DEFAULT_WEIGHT;
+                    w = Math.max(w, 0.01);
+                    double u = java.util.concurrent.ThreadLocalRandom.current().nextDouble(0.0001, 1.0);
+                    double key = Math.pow(u, 1.0 / w);
+                    return Map.entry(key, p);
+                })
+                .sorted((a, b) -> Double.compare(b.getKey(), a.getKey()))
+                .limit(size)
+                .map(Map.Entry::getValue)
+                .toList();
     }
 
     private void assertOwner(Pin pin, Long userId) {

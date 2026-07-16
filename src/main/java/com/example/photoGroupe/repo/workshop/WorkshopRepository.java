@@ -47,6 +47,14 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     """)
     int releaseSeat(@Param("workshopId") Long workshopId);
 
+    @Query("""
+    select w from Workshop w
+    where lower(w.title) like lower(concat('%', :q, '%'))
+       or lower(w.description) like lower(concat('%', :q, '%'))
+       or lower(w.location) like lower(concat('%', :q, '%'))
+""")
+    Page<Workshop> search(@Param("q") String q, Pageable pageable);
+
 //    @Modifying
 //    @Query("UPDATE Workshop w SET w.seatsBooked = w.seatsBooked + 1 WHERE w.id = :workshopId")
 //    int confirmSeat(@Param("workshopId") Long workshopId);

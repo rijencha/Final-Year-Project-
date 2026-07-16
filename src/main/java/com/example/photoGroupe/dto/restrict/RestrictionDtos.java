@@ -22,22 +22,29 @@ public class RestrictionDtos {
         private final Long id;
         private final Long restrictedUserId;
         private final String restrictedUsername;
+        private final String restrictedFullName;
+        private final String restrictedProfilePicture;
         private final RestrictionType type;
         private final LocalDateTime createdAt;
 
         public RestrictionResponse(Long id, Long restrictedUserId, String restrictedUsername,
+                                   String restrictedFullName, String restrictedProfilePicture,
                                    RestrictionType type, LocalDateTime createdAt) {
             this.id = id;
             this.restrictedUserId = restrictedUserId;
             this.restrictedUsername = restrictedUsername;
+            this.restrictedFullName = restrictedFullName;
+            this.restrictedProfilePicture = restrictedProfilePicture;
             this.type = type;
             this.createdAt = createdAt;
         }
 
-        public Long getId()                    { return id; }
-        public Long getRestrictedUserId()      { return restrictedUserId; }
-        public String getRestrictedUsername()  { return restrictedUsername; }
-        public RestrictionType getType()       { return type; }
-        public LocalDateTime getCreatedAt()    { return createdAt; }
+        public Long getId()                         { return id; }
+        public Long getRestrictedUserId()            { return restrictedUserId; }
+        public String getRestrictedUsername()        { return restrictedUsername; }
+        public String getRestrictedFullName()        { return restrictedFullName; }
+        public String getRestrictedProfilePicture()  { return restrictedProfilePicture; }
+        public RestrictionType getType()             { return type; }
+        public LocalDateTime getCreatedAt()          { return createdAt; }
     }
 }

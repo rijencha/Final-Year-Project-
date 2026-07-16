@@ -48,7 +48,7 @@ public class AdAdminController {
     @PutMapping("/banners/{bannerId}/remove")
     public ResponseEntity<BannerAdResponse> removeBanner(
             @PathVariable Long bannerId,
-            @RequestBody(required = false) String reason) {
+            @RequestParam(required = false) String reason) {
         return ResponseEntity.ok(adAdminService.removeBanner(bannerId, reason));
     }
 
