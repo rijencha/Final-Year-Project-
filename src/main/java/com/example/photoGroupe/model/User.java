@@ -35,6 +35,9 @@ public class User implements UserDetails {
     @Column(name = "interests")
     private String interests;
 
+    @Column(name = "booking_restricted_until")
+    private LocalDateTime bookingRestrictedUntil;
+
     // ─── OAUTH ─────────────────────────────────────────────────────────────
     @Enumerated(EnumType.STRING)
     @Column(name = "oauth_provider", nullable = false)
@@ -202,6 +205,7 @@ public class User implements UserDetails {
     public String getInterests() { return interests; }
     public Integer getYearsOfExperience() { return yearsOfExperience; }
     public long getProfileViewCount() { return profileViewCount; }
+    public LocalDateTime getBookingRestrictedUntil() { return bookingRestrictedUntil; }
 
     // setter
     public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
@@ -228,6 +232,8 @@ public class User implements UserDetails {
     public void setVerificationStatus(VerificationStatus verificationStatus) {
         this.verificationStatus = verificationStatus;
     }
+    public void setBookingRestrictedUntil(LocalDateTime t) { this.bookingRestrictedUntil = t; }
+
 
     public void setOauthProvider(OAuthProvider oauthProvider) {
         this.oauthProvider = oauthProvider;

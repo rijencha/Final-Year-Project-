@@ -108,6 +108,14 @@ public class PinsServiceImpl implements PinsService{
         }
 
         pinRepository.save(pin);
+        userRepository.findByRoleInAndDeletedFalse(List.of(Role.ADMIN, Role.SUPER_ADMIN))
+                .forEach(admin -> notificationService.create(
+                        admin,
+                        user,
+                        "NEW_PIN_CREATED",
+                        user.getFullName() + " created a new pin \"" + pin.getTitle() + "\"",
+                        "/pin/" + pin.getId()
+                ));
         return toResponse(pin, currentUserId);
     }
 

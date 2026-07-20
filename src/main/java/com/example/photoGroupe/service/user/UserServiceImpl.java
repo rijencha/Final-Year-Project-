@@ -6,10 +6,14 @@ import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
 import com.example.photoGroupe.dto.eventandbid.SpecializationResponse;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.dto.detail.UserSummary;
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.model.*;
 import com.example.photoGroupe.model.rating.PhotographerReview;
+import com.example.photoGroupe.model.share.ShareableType;
 import com.example.photoGroupe.repo.*;
 import com.example.photoGroupe.repo.ads.PhotographerBoostRepository;
+import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.share.ShareService;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -35,7 +39,9 @@ public class UserServiceImpl implements UserService{
     private final PhotographerSpecializationRepository specializationRepo;
     private final ProfileViewRepository profileViewRepository;
     private final PhotographerBoostRepository boostRepository;
-    private final PasswordEncoder passwordEncoder;   // ← add to constructor fields
+    private final PasswordEncoder passwordEncoder;
+    private final ShareService shareService;
+    private final NotificationService notificationService;
 
 
     private static final double MIN_REVIEWS_FOR_FULL_TRUST = 20.0;
@@ -355,6 +361,22 @@ public class UserServiceImpl implements UserService{
                 .stream()
                 .map(this::toPhotographerDetail)
                 .toList();
+    }
+
+    @Override
+    public ShareResponse shareProfile(Long profileOwnerId, User sharer) {
+        User owner = userRepository.findByIdAndDeletedFalse(profileOwnerId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ShareResponse response = shareService.share(ShareableType.USER_PROFILE, profileOwnerId, "profile", sharer);
+
+        // optional:
+         if (!owner.getId().equals(sharer.getId())) {
+             notificationService.create(owner, sharer, "PROFILE_SHARED",
+                     sharer.getFullName() + " shared your profile", "/profile/" + owner.getId());
+         }
+
+        return response;
     }
 
 

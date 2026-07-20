@@ -108,4 +108,11 @@ public class BidController {
         bidService.adminRejectBid(bidId);
         return ResponseEntity.ok().build();
     }
+
+    // Admin — view all bids on an event (including withdrawn/rejected — full moderation view)
+    @GetMapping("/admin/event/{eventId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<List<BidResponse>> getAllBidsForEventAdmin(@PathVariable Long eventId) {
+        return ResponseEntity.ok(bidService.getAllBidsForEventAdmin(eventId));
+    }
 }

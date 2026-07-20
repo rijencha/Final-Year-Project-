@@ -1,19 +1,25 @@
 package com.example.photoGroupe.service.workshop;
 
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.dto.workshop.WorkshopDTOs.*;
 import com.example.photoGroupe.model.Role;
 import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.model.share.ShareableType;
 import com.example.photoGroupe.model.workshop.Workshop;
 import com.example.photoGroupe.model.workshop.WorkshopParticipant;
 import com.example.photoGroupe.model.workshop.WorkshopParticipantStatus;
 import com.example.photoGroupe.model.workshop.WorkshopStatus;
+import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.workshop.WorkshopParticipantRepository;
 import com.example.photoGroupe.repo.workshop.WorkshopRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.restrict.FeedExclusionService;
+import com.example.photoGroupe.service.share.ShareService;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,9 +33,13 @@ import java.util.List;
 public class WorkshopServiceImpl implements WorkshopService {
 
     private final WorkshopRepository workshopRepository;
+    private final UserRepository userRepository;
     private final WorkshopParticipantRepository participantRepository;
     private final NotificationService notificationService;
     private final CloudinaryService cloudinaryService; // add this
+    private final FeedExclusionService feedExclusionService;
+    private final ShareService shareService;
+
 
     // ─── Photographer: CRUD ───────────────────────────────────────────────
 
@@ -62,6 +72,15 @@ public class WorkshopServiceImpl implements WorkshopService {
                 "Your workshop \"" + w.getTitle() + "\" has been created successfully",
                 "/dashboard/workshops/" + w.getId()
         );
+
+        userRepository.findByRoleInAndDeletedFalse(List.of(Role.ADMIN, Role.SUPER_ADMIN))
+                .forEach(admin -> notificationService.create(
+                        admin,
+                        photographer,
+                        "NEW_WORKSHOP_CREATED",
+                        photographer.getFullName() + " created a new workshop \"" + w.getTitle() + "\"",
+                        "/dashboard/workshops/" + w.getId()
+                ));
 
         return toDetail(w);
     }
@@ -141,8 +160,23 @@ public class WorkshopServiceImpl implements WorkshopService {
     // ─── Public: Browse ───────────────────────────────────────────────────
 
     @Override
-    public Page<WorkshopSummaryResponse> listAvailable(Pageable pageable) {
-        return workshopRepository.findAvailable(pageable).map(this::toSummary);
+    public Page<WorkshopSummaryResponse> listAvailable(Pageable pageable, Long currentUserId) {
+        if (currentUserId == null) {
+            return workshopRepository.findAvailable(pageable).map(this::toSummary);
+        }
+
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable widened = PageRequest.of(0, pageable.getPageSize() + exclusions.workshopIds().size() + 10);
+
+        List<Workshop> filtered = workshopRepository.findAvailable(widened)
+                .getContent().stream()
+                .filter(w -> !exclusions.excludes(w))
+                .skip((long) pageable.getPageNumber() * pageable.getPageSize())
+                .limit(pageable.getPageSize())
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(this::toSummary).toList(), pageable, filtered.size());
     }
 
     @Override
@@ -222,8 +256,23 @@ public class WorkshopServiceImpl implements WorkshopService {
     }
 
     @Override
-    public Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable) {
-        return workshopRepository.search(query, pageable).map(this::toSummary);
+    public Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable, Long currentUserId) {
+        if (currentUserId == null) {
+            return workshopRepository.search(query, pageable).map(this::toSummary);
+        }
+
+        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+        Pageable widened = PageRequest.of(0, pageable.getPageSize() + exclusions.workshopIds().size() + 10);
+
+        List<Workshop> filtered = workshopRepository.search(query, widened)
+                .getContent().stream()
+                .filter(w -> !exclusions.excludes(w))
+                .skip((long) pageable.getPageNumber() * pageable.getPageSize())
+                .limit(pageable.getPageSize())
+                .toList();
+
+        return new org.springframework.data.domain.PageImpl<>(
+                filtered.stream().map(this::toSummary).toList(), pageable, filtered.size());
     }
 
     // ─── Private Helpers ──────────────────────────────────────────────────
@@ -330,6 +379,27 @@ public class WorkshopServiceImpl implements WorkshopService {
     public List<ParticipantResponse> adminGetParticipants(Long workshopId) {
         return participantRepository.findByWorkshopId(workshopId)
                 .stream().map(this::toParticipantResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public ShareResponse shareWorkshop(Long workshopId, CustomUserDetails currentUser) {
+        Workshop w = findById(workshopId);
+        User sharer = currentUser.getUser();
+
+        ShareResponse response = shareService.share(ShareableType.WORKSHOP, workshopId, "workshop", sharer);
+
+        if (!w.getPhotographer().getId().equals(sharer.getId())) {
+            notificationService.create(
+                    w.getPhotographer(),
+                    sharer,
+                    "WORKSHOP_SHARED",
+                    sharer.getFullName() + " shared your workshop \"" + w.getTitle() + "\"",
+                    "/dashboard/workshops/" + w.getId()
+            );
+        }
+
+        return response;
     }
 
     private WorkshopSummaryResponse toSummary(Workshop w) {

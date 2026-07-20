@@ -7,10 +7,12 @@ import com.example.photoGroupe.model.Pin;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.restrict.FeedExclusion;
 import com.example.photoGroupe.model.restrict.FeedExclusionScope;
+import com.example.photoGroupe.model.workshop.Workshop;
 import com.example.photoGroupe.repo.CategoryRepository;
 import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.restrict.FeedExclusionRepository;
+import com.example.photoGroupe.repo.workshop.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,7 @@ public class FeedExclusionService {
     private final UserRepository userRepository;
     private final PinRepository pinRepository;
     private final CategoryRepository categoryRepository;
+    private final WorkshopRepository workshopRepository;
 
     public void exclude(Long ownerId, FeedExclusionRequest request) {
         User owner = userRepository.findById(ownerId)
@@ -34,24 +37,31 @@ public class FeedExclusionService {
         switch (request.getScope()) {
             case PIN -> {
                 if (exclusionRepository.findByOwnerIdAndScopeAndPinId(ownerId, FeedExclusionScope.PIN, request.getPinId()).isPresent())
-                    return; // already excluded, no-op
+                    return;
                 Pin pin = pinRepository.findById(request.getPinId())
                         .orElseThrow(() -> new RuntimeException("Pin not found"));
-                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.PIN, pin, null, null));
+                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.PIN, pin, null, null, null, null));
             }
             case USER -> {
                 if (exclusionRepository.findByOwnerIdAndScopeAndExcludedUserId(ownerId, FeedExclusionScope.USER, request.getExcludedUserId()).isPresent())
                     return;
                 User excludedUser = userRepository.findById(request.getExcludedUserId())
                         .orElseThrow(() -> new RuntimeException("User not found"));
-                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.USER, null, excludedUser, null));
+                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.USER, null, excludedUser, null, null, null));
             }
             case CATEGORY -> {
                 if (exclusionRepository.findByOwnerIdAndScopeAndCategoryId(ownerId, FeedExclusionScope.CATEGORY, request.getCategoryId()).isPresent())
                     return;
                 Category category = categoryRepository.findById(request.getCategoryId())
                         .orElseThrow(() -> new RuntimeException("Category not found"));
-                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.CATEGORY, null, null, category));
+                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.CATEGORY, null, null, category, null, null));
+            }
+            case WORKSHOP -> {
+                if (exclusionRepository.findByOwnerIdAndScopeAndWorkshopId(ownerId, FeedExclusionScope.WORKSHOP, request.getWorkshopId()).isPresent())
+                    return;
+                Workshop workshop = workshopRepository.findById(request.getWorkshopId())
+                        .orElseThrow(() -> new RuntimeException("Workshop not found"));
+                exclusionRepository.save(new FeedExclusion(owner, FeedExclusionScope.WORKSHOP, null, null, null, workshop, null));
             }
         }
     }
@@ -61,6 +71,7 @@ public class FeedExclusionService {
             case PIN -> exclusionRepository.findByOwnerIdAndScopeAndPinId(ownerId, scope, targetId);
             case USER -> exclusionRepository.findByOwnerIdAndScopeAndExcludedUserId(ownerId, scope, targetId);
             case CATEGORY -> exclusionRepository.findByOwnerIdAndScopeAndCategoryId(ownerId, scope, targetId);
+            case WORKSHOP -> exclusionRepository.findByOwnerIdAndScopeAndWorkshopId(ownerId, scope, targetId);
         };
         existing.ifPresent(f -> exclusionRepository.deleteById(f.getId()));
     }
@@ -71,6 +82,7 @@ public class FeedExclusionService {
                     Pin pin = f.getPin();
                     User excludedUser = f.getExcludedUser();
                     Category category = f.getCategory();
+                    Workshop workshop = f.getWorkshop();
 
                     return new FeedExclusionResponse(
                             f.getId(),
@@ -91,26 +103,37 @@ public class FeedExclusionService {
                             category != null ? category.getName() : null,
                             category != null ? category.getCoverImage() : null,
 
+                            workshop != null ? workshop.getId() : null,
+                            workshop != null ? workshop.getTitle() : null,
+                            workshop != null ? workshop.getCoverImage() : null,
+                            workshop != null ? workshop.getPhotographer().getFullName() : null,
+
                             f.getCreatedAt()
                     );
                 })
                 .toList();
     }
 
-    /** Bundles the three exclusion sets for one user — call once per feed request, not per pin. */
+    /** Bundles the four exclusion sets for one user — call once per feed/listing request, not per item. */
     public ExclusionSet getExclusionSet(Long ownerId) {
         return new ExclusionSet(
                 Set.copyOf(exclusionRepository.findExcludedPinIds(ownerId)),
                 Set.copyOf(exclusionRepository.findExcludedUserIds(ownerId)),
-                Set.copyOf(exclusionRepository.findExcludedCategoryIds(ownerId))
+                Set.copyOf(exclusionRepository.findExcludedCategoryIds(ownerId)),
+                Set.copyOf(exclusionRepository.findExcludedWorkshopIds(ownerId))
         );
     }
 
-    public record ExclusionSet(Set<Long> pinIds, Set<Long> userIds, Set<Long> categoryIds) {
+    public record ExclusionSet(Set<Long> pinIds, Set<Long> userIds, Set<Long> categoryIds, Set<Long> workshopIds) {
         public boolean excludes(Pin pin) {
             if (pinIds.contains(pin.getId())) return true;
             if (userIds.contains(pin.getUser().getId())) return true;
             return pin.getCategory() != null && categoryIds.contains(pin.getCategory().getId());
+        }
+
+        public boolean excludes(Workshop workshop) {
+            if (workshopIds.contains(workshop.getId())) return true;
+            return userIds.contains(workshop.getPhotographer().getId());
         }
     }
 }

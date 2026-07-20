@@ -10,6 +10,7 @@ import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.security.JwtService;
 import com.example.photoGroupe.security.RefreshTokenService;
 import com.example.photoGroupe.service.email.EmailService;
+import com.example.photoGroupe.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +39,8 @@ public class AuthServiceImpl implements AuthService{
     private final OtpTokenRepository otpTokenRepository;
 
     private final EmailService emailService;
+
+    private final NotificationService notificationService;
 
     private static final int  OTP_EXPIRY_MINUTES = 10;
 
@@ -89,6 +93,15 @@ public class AuthServiceImpl implements AuthService{
         }
 
         userRepository.save(user);
+
+        userRepository.findByRoleInAndDeletedFalse(List.of(Role.ADMIN, Role.SUPER_ADMIN))
+                .forEach(admin -> notificationService.create(
+                        admin,
+                        user,
+                        "NEW_USER_JOINED",
+                        user.getFullName() + " (" + user.getRole().name() + ") just joined PhotoGroupe",
+                        "/admin/users/" + user.getId()
+                ));
 
         // ── Generate tokens ───────────────────────────────────────────────
         String accessToken = jwtService.generateAccessToken(user);

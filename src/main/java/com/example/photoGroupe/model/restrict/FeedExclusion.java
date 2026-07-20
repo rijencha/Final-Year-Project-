@@ -3,6 +3,8 @@ package com.example.photoGroupe.model.restrict;
 import com.example.photoGroupe.model.Category;
 import com.example.photoGroupe.model.Pin;
 import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.model.event.EventRequest;
+import com.example.photoGroupe.model.workshop.Workshop;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -40,6 +42,16 @@ public class FeedExclusion {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    /** Set only when scope == WORKSHOP */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "workshop_id")
+    private Workshop workshop;
+
+    /** Set only when scope == EVENT_REQUEST */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_request_id")
+    private EventRequest eventRequest;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -48,12 +60,24 @@ public class FeedExclusion {
 
     public FeedExclusion() {}
 
+    /**
+     * @deprecated use the 7-arg constructor covering all scopes (WORKSHOP / EVENT_REQUEST included).
+     * Kept temporarily so existing call sites still compile during migration.
+     */
+    @Deprecated
     public FeedExclusion(User owner, FeedExclusionScope scope, Pin pin, User excludedUser, Category category) {
+        this(owner, scope, pin, excludedUser, category, null, null);
+    }
+
+    public FeedExclusion(User owner, FeedExclusionScope scope, Pin pin, User excludedUser,
+                         Category category, Workshop workshop, EventRequest eventRequest) {
         this.owner        = owner;
         this.scope        = scope;
         this.pin          = pin;
         this.excludedUser = excludedUser;
-        this.category      = category;
+        this.category     = category;
+        this.workshop     = workshop;
+        this.eventRequest = eventRequest;
     }
 
     // ─── Getters / Setters ────────────────────────────────────────────────
@@ -64,6 +88,8 @@ public class FeedExclusion {
     public Pin getPin()                       { return pin; }
     public User getExcludedUser()             { return excludedUser; }
     public Category getCategory()             { return category; }
+    public Workshop getWorkshop()             { return workshop; }
+    public EventRequest getEventRequest()     { return eventRequest; }
     public LocalDateTime getCreatedAt()       { return createdAt; }
 
     public void setOwner(User owner)                     { this.owner = owner; }
@@ -71,6 +97,8 @@ public class FeedExclusion {
     public void setPin(Pin pin)                          { this.pin = pin; }
     public void setExcludedUser(User excludedUser)       { this.excludedUser = excludedUser; }
     public void setCategory(Category category)           { this.category = category; }
+    public void setWorkshop(Workshop workshop)           { this.workshop = workshop; }
+    public void setEventRequest(EventRequest eventRequest) { this.eventRequest = eventRequest; }
 
     @Override
     public boolean equals(Object o) {

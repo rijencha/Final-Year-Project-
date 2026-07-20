@@ -25,6 +25,13 @@ public class Report {
     @Column(nullable = false)
     private ReportReason reason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "context_type")
+    private ReportContextType contextType;
+
+    @Column(name = "context_id")
+    private Long contextId;
+
     // Free-text message from the reporter (required for OTHER, optional for rest)
     @Column(name = "message", length = 1000)
     private String message;
@@ -58,6 +65,12 @@ public class Report {
     public User getReviewedBy()                 { return reviewedBy; }
     public LocalDateTime getReviewedAt()        { return reviewedAt; }
     public LocalDateTime getCreatedAt()         { return createdAt; }
+
+    public ReportContextType getContextType()        { return contextType; }
+    public void setContextType(ReportContextType c)   { this.contextType = c; }
+
+    public Long getContextId()                        { return contextId; }
+    public void setContextId(Long id)                 { this.contextId = id; }
 
     public void setReportedUser(User u)         { this.reportedUser = u; }
     public void setReporter(User u)             { this.reporter = u; }

@@ -1,6 +1,7 @@
 package com.example.photoGroupe.controller.booking;
 
 
+import com.example.photoGroupe.dto.admin.AdminForceCancelRequest;
 import com.example.photoGroupe.dto.booking.BookingRequest;
 import com.example.photoGroupe.dto.booking.BookingResponse;
 import com.example.photoGroupe.dto.booking.BookingStatusRequest;
@@ -128,5 +129,16 @@ public class BookingController {
             Pageable pageable
     ) {
         return ResponseEntity.ok(bookingService.getAll(status, pageable));
+    }
+
+    @PutMapping("/admin/{id}/force-cancel")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public ResponseEntity<BookingResponse> adminForceCancel(
+            @PathVariable Long id,
+            @RequestBody(required = false) AdminForceCancelRequest req,
+            @AuthenticationPrincipal CustomUserDetails currentUser
+    ) {
+        AdminForceCancelRequest request = req != null ? req : new AdminForceCancelRequest();
+        return ResponseEntity.ok(bookingService.adminForceCancel(id, currentUser.getUser(), request));
     }
 }

@@ -34,7 +34,7 @@ public class SearchServiceImpl implements SearchService {
 
         List<?> users = userService.searchUsers(q, USERS_LIMIT);
         var photographers = userService.searchPhotographers(q, PHOTOGRAPHERS_LIMIT);
-        var workshops = workshopService.searchWorkshops(q, PageRequest.of(0, WORKSHOPS_LIMIT)).getContent();
+        var workshops = workshopService.searchWorkshops(q, PageRequest.of(0, WORKSHOPS_LIMIT), currentUserId).getContent();
         var pins = pinsService.searchPins(q, 0, PINS_LIMIT, currentUserId).getContent();
 
         boolean found = !users.isEmpty() || !photographers.isEmpty()

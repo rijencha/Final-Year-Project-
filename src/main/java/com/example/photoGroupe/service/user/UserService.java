@@ -5,6 +5,7 @@ import com.example.photoGroupe.dto.detail.UpdateUserRequest;
 import com.example.photoGroupe.dto.detail.UpgradeToPhotographerRequest;
 import com.example.photoGroupe.dto.photographer.PhotographerDetail;
 import com.example.photoGroupe.dto.detail.UserSummary;
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.model.User;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,4 +27,5 @@ public interface UserService {
     void changePassword(Long userId, ChangePasswordRequest request, User currentUser);
     List<UserSummary> searchUsers(String query, int limit);
     List<PhotographerDetail> searchPhotographers(String query, int limit);
+    ShareResponse shareProfile(Long profileOwnerId, User sharer);
 }
