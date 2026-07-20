@@ -7,10 +7,12 @@ import com.example.photoGroupe.model.bidding.Bid;
 import com.example.photoGroupe.model.bidding.BidStatus;
 import com.example.photoGroupe.model.event.EventRequest;
 import com.example.photoGroupe.model.event.EventRequestStatus;
+import com.example.photoGroupe.model.restrict.RestrictionType;
 import com.example.photoGroupe.repo.BidRepository;
 import com.example.photoGroupe.repo.EventRequestRepository;
 import com.example.photoGroupe.service.booking.BookingService;
 import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,8 @@ public class BidServiceImpl implements BidService {
     private final EventRequestRepository eventRequestRepository;
     private final NotificationService notificationService;
     private final BookingService bookingService;
+    private final UserRestrictionService userRestrictionService; // add to constructor
+
 
     @Override
     public BidResponse submitBid(User photographer, Long eventId, BidDTO dto) {
@@ -37,6 +41,8 @@ public class BidServiceImpl implements BidService {
 
         if (event.getClient().getId().equals(photographer.getId()))
             throw new RuntimeException("You cannot bid on your own event request");
+
+        userRestrictionService.assertNotRestricted(photographer.getId(), event.getClient().getId(), RestrictionType.BOOKING);
 
         if (bidRepository.existsByEventRequestIdAndPhotographerId(eventId, photographer.getId()))
             throw new RuntimeException("You have already submitted a bid for this event");
@@ -210,6 +216,17 @@ public class BidServiceImpl implements BidService {
                 .filter(b -> b.getStatus() != BidStatus.WITHDRAWN) // don't surface withdrawn bids
                 .map(BidResponse::new)
                 .toList();
+    }
+
+    @Override
+    public List<BidResponse> getAllBidsForEventAdmin(Long eventId) {
+        if (!eventRequestRepository.existsById(eventId))
+            throw new RuntimeException("Event not found");
+
+        return bidRepository.findByEventRequestId(eventId)
+                .stream()
+                .map(BidResponse::new)
+                .toList(); // no filtering — admin sees everything, including withdrawn/rejected
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

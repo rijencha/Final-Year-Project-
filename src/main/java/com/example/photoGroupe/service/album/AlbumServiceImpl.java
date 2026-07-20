@@ -7,17 +7,21 @@ import com.example.photoGroupe.dto.album.AlbumZipPayload;
 import com.example.photoGroupe.dto.album.DownloadResponse;
 import com.example.photoGroupe.dto.pins.PinRequest;
 import com.example.photoGroupe.dto.pins.PinResponse;
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.model.Pin;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.pins.Album;
 import com.example.photoGroupe.model.pins.AlbumDownload;
 import com.example.photoGroupe.model.pins.AlbumPin;
 import com.example.photoGroupe.model.pins.PinDownload;
+import com.example.photoGroupe.model.share.ShareableType;
 import com.example.photoGroupe.repo.*;
 import com.example.photoGroupe.repo.pins.AlbumDownloadRepository;
 import com.example.photoGroupe.repo.pins.AlbumPinRepository;
 import com.example.photoGroupe.repo.pins.AlbumRepository;
 import com.example.photoGroupe.repo.pins.PinDownloadRepository;
+import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.share.ShareService;
 import com.example.photoGroupe.service.upload.CloudinaryService;
 import com.example.photoGroupe.service.upload.PinsService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +51,8 @@ public class AlbumServiceImpl implements AlbumService{
     private final SavedPinRepository savedPinRepository;
     private final PinShareRepository pinShareRepository;
     private final PinsService pinsService;
+    private final ShareService shareService;
+    private final NotificationService notificationService; // not currently injected — add this
 
     @Override
     @Transactional
@@ -260,6 +266,31 @@ public class AlbumServiceImpl implements AlbumService{
     @Transactional(readOnly = true)
     public long getUserTotalDownloads(Long userId) {
         return albumDownloadRepository.countByAlbumUserId(userId);
+    }
+
+    // ─── Sharing ──────────────────────────────────────────────────────────
+
+    @Override
+    @Transactional
+    public ShareResponse shareAlbum(Long albumId, Long currentUserId) {
+        Album album = findActiveAlbum(albumId);
+        assertVisibility(album, currentUserId);   // can't share a private album you don't own
+
+        User sharer = findUser(currentUserId);
+
+        ShareResponse response = shareService.share(ShareableType.ALBUM, albumId, "album", sharer);
+
+        if (!album.getUser().getId().equals(currentUserId)) {
+            notificationService.create(
+                    album.getUser(),
+                    sharer,
+                    "ALBUM_SHARED",
+                    sharer.getFullName() + " shared your album \"" + album.getTitle() + "\"",
+                    "/album/" + albumId
+            );
+        }
+
+        return response;
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────

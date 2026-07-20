@@ -18,4 +18,5 @@ public interface BidService {
     BigDecimal getEarnings(Long photographerId);
     void adminRejectBid(Long bidId);
     List<BidResponse> getPublicBidsForEvent(Long eventId);
+    List<BidResponse> getAllBidsForEventAdmin(Long eventId);
 }

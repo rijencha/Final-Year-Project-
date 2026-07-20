@@ -5,6 +5,7 @@ import com.example.photoGroupe.dto.album.AlbumResponse;
 import com.example.photoGroupe.dto.album.AlbumZipPayload;
 import com.example.photoGroupe.dto.album.DownloadResponse;
 import com.example.photoGroupe.dto.pins.PinResponse;
+import com.example.photoGroupe.dto.share.ShareResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +30,7 @@ public interface AlbumService {
     DownloadResponse trackAlbumDownload(Long albumId, Long currentUserId);
     AlbumZipPayload prepareAlbumZip(Long albumId, Long currentUserId);
     long getUserTotalDownloads(Long userId);
+    ShareResponse shareAlbum(Long albumId, Long currentUserId);
 
 
 }

@@ -1,5 +1,6 @@
 package com.example.photoGroupe.service.booking;
 
+import com.example.photoGroupe.dto.admin.AdminForceCancelRequest;
 import com.example.photoGroupe.dto.booking.BookingRequest;
 import com.example.photoGroupe.dto.booking.BookingResponse;
 import com.example.photoGroupe.dto.booking.PackageRequest;
@@ -10,6 +11,7 @@ import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.bidding.Bid;
 import com.example.photoGroupe.model.booking.*;
 import com.example.photoGroupe.model.chatting.MessageType;
+import com.example.photoGroupe.model.restrict.RestrictionType;
 import com.example.photoGroupe.repo.BookingRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.payment.BookingPackageRepository;
@@ -17,6 +19,7 @@ import com.example.photoGroupe.repo.payment.PaymentRepository;
 import com.example.photoGroupe.repo.payment.PayoutRepository;
 import com.example.photoGroupe.service.chatting.MessageServiceImpl;
 import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +45,7 @@ public class BookingServiceImpl implements BookingService {
     private final MessageServiceImpl messageService;
     private final PhotographerPackageService photographerPackageService;
     private final PaymentRepository  paymentRepository;
+    private final UserRestrictionService userRestrictionService; // add to constructor
 
     // ── Client: create booking ───────────────────────────────────────────
 
@@ -51,6 +55,17 @@ public class BookingServiceImpl implements BookingService {
 
         if (photographer.getRole() != Role.PHOTOGRAPHER)
             throw new RuntimeException("User is not a photographer");
+
+        if (client.getBookingRestrictedUntil() != null
+                && client.getBookingRestrictedUntil().isAfter(LocalDateTime.now()))
+            throw new RuntimeException("You are temporarily restricted from making bookings until "
+                    + client.getBookingRestrictedUntil());
+
+        if (photographer.getBookingRestrictedUntil() != null
+                && photographer.getBookingRestrictedUntil().isAfter(LocalDateTime.now()))
+            throw new RuntimeException("This photographer is temporarily unavailable for new bookings");
+
+        userRestrictionService.assertNotRestricted(photographer.getId(), client.getId(), RestrictionType.BOOKING);
 
         // Check for scheduling conflict
         if (bookingRepository.isPhotographerBooked(photographer.getId(), req.getEventDate()))
@@ -421,6 +436,55 @@ public class BookingServiceImpl implements BookingService {
         packageRepository.delete(pkg);
     }
 
+    // ── Admin: force cancel + optional penalty ────────────────────────────
+
+    public BookingResponse adminForceCancel(Long bookingId, User admin, AdminForceCancelRequest req) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (booking.getStatus() == BookingStatus.COMPLETED)
+            throw new RuntimeException("Cannot force cancel a completed booking");
+        if (booking.getStatus() == BookingStatus.CANCELLED)
+            throw new RuntimeException("Booking is already cancelled");
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(
+                req.getReason() != null && !req.getReason().isBlank()
+                        ? req.getReason()
+                        : "Cancelled by admin"
+        );
+        bookingRepository.save(booking);
+
+        int penaltyDays = (req.getPenaltyDays() != null && req.getPenaltyDays() > 0) ? req.getPenaltyDays() : 10;
+        String party = req.getPenalizeParty() != null ? req.getPenalizeParty().toUpperCase() : "NONE";
+
+        if (party.equals("CLIENT") || party.equals("BOTH")) {
+            applyBookingPenalty(booking.getClient(), penaltyDays, admin, booking);
+        }
+        if (party.equals("PHOTOGRAPHER") || party.equals("BOTH")) {
+            applyBookingPenalty(booking.getPhotographer(), penaltyDays, admin, booking);
+        }
+
+        notificationService.create(
+                booking.getClient(),
+                admin,
+                "BOOKING_ADMIN_CANCELLED",
+                "Your booking for \"" + booking.getEventTitle() + "\" was cancelled by an admin"
+                        + (req.getReason() != null && !req.getReason().isBlank() ? ": " + req.getReason() : ""),
+                "/my-bookings/" + bookingId
+        );
+        notificationService.create(
+                booking.getPhotographer(),
+                admin,
+                "BOOKING_ADMIN_CANCELLED",
+                "The booking for \"" + booking.getEventTitle() + "\" was cancelled by an admin"
+                        + (req.getReason() != null && !req.getReason().isBlank() ? ": " + req.getReason() : ""),
+                "/dashboard/bookings/" + bookingId
+        );
+
+        return new BookingResponse(booking);
+    }
+
 // ── Get all packages for a photographer ──────────────────────────────
 
     public List<PackageResponse> getPhotographerPackages(User photographer) {
@@ -707,5 +771,20 @@ public class BookingServiceImpl implements BookingService {
                 .lastActionBy(pkg.getLastActionBy())
                 .createdAt(pkg.getCreatedAt())
                 .build();
+    }
+
+    private void applyBookingPenalty(User user, int days, User admin, Booking booking) {
+        LocalDateTime restrictedUntil = LocalDateTime.now().plusDays(days);
+        user.setBookingRestrictedUntil(restrictedUntil);
+        userRepository.save(user);
+
+        notificationService.create(
+                user,
+                admin,
+                "BOOKING_PENALTY",
+                "You've been restricted from making or receiving bookings for " + days
+                        + " days, following the cancellation of \"" + booking.getEventTitle() + "\" by an admin.",
+                "/support"
+        );
     }
 }

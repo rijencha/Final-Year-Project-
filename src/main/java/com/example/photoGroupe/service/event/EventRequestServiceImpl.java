@@ -2,12 +2,15 @@ package com.example.photoGroupe.service.event;
 
 import com.example.photoGroupe.dto.eventandbid.EventRequestDTO;
 import com.example.photoGroupe.dto.eventandbid.EventRequestResponse;
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.event.EventRequest;
 import com.example.photoGroupe.model.event.EventRequestStatus;
 import com.example.photoGroupe.model.event.EventType;
+import com.example.photoGroupe.model.share.ShareableType;
 import com.example.photoGroupe.repo.EventRequestRepository;
 import com.example.photoGroupe.service.notification.NotificationService;
+import com.example.photoGroupe.service.share.ShareService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +22,7 @@ public class EventRequestServiceImpl implements EventRequestService {
 
     private final EventRequestRepository eventRequestRepository;
     private final NotificationService notificationService;
+    private final ShareService shareService;
 
     @Override
     public EventRequestResponse create(User client, EventRequestDTO dto) {
@@ -101,6 +105,25 @@ public class EventRequestServiceImpl implements EventRequestService {
         return eventRequestRepository
                 .findByCustomEventTypeIgnoreCaseAndStatus(customType, EventRequestStatus.OPEN, pageable)
                 .map(EventRequestResponse::new);
+    }
+
+    @Override
+    public ShareResponse shareEvent(Long eventId, User sharer) {
+        EventRequest event = findById(eventId);
+
+        ShareResponse response = shareService.share(ShareableType.EVENT, eventId, "event", sharer);
+
+        if (!event.getClient().getId().equals(sharer.getId())) {
+            notificationService.create(
+                    event.getClient(),
+                    sharer,
+                    "EVENT_SHARED",
+                    sharer.getFullName() + " shared your event request \"" + event.getTitle() + "\"",
+                    "/events/" + eventId
+            );
+        }
+
+        return response;
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

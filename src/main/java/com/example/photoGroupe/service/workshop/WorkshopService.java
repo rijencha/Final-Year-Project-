@@ -1,5 +1,6 @@
 package com.example.photoGroupe.service.workshop;
 
+import com.example.photoGroupe.dto.share.ShareResponse;
 import com.example.photoGroupe.dto.workshop.WorkshopDTOs.*;
 import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.workshop.WorkshopStatus;
@@ -22,7 +23,7 @@ public interface WorkshopService {
 
     WorkshopDetailResponse updateStatus(Long id, WorkshopStatus status, CustomUserDetails currentUser);
 
-    Page<WorkshopSummaryResponse> listAvailable(Pageable pageable);
+    Page<WorkshopSummaryResponse> listAvailable(Pageable pageable, Long currentUserId);
 
     WorkshopDetailResponse getWorkshop(Long id);
 
@@ -34,12 +35,14 @@ public interface WorkshopService {
 
     ParticipantResponse getMyRegistration(Long workshopId, CustomUserDetails currentUser);
 
-    Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable);
+    Page<WorkshopSummaryResponse> searchWorkshops(String query, Pageable pageable, Long currentUserId);
     // Admin
     Page<WorkshopSummaryResponse> listAll(Pageable pageable);
     WorkshopDetailResponse adminUpdateStatus(Long id, WorkshopStatus status, User admin);
     void adminDeleteWorkshop(Long id, User admin);
     List<ParticipantResponse> adminGetParticipants(Long workshopId);
+
+    ShareResponse shareWorkshop(Long workshopId, CustomUserDetails currentUser);
 
 
 

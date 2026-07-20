@@ -1,5 +1,6 @@
 package com.example.photoGroupe.service.booking;
 
+import com.example.photoGroupe.dto.admin.AdminForceCancelRequest;
 import com.example.photoGroupe.dto.booking.BookingRequest;
 import com.example.photoGroupe.dto.booking.BookingResponse;
 import com.example.photoGroupe.dto.booking.PackageRequest;
@@ -44,4 +45,6 @@ public interface BookingService {
     PackageResponse getByBookingId(Long bookingId);
     List<PackageResponse> getPhotographerPackages(User photographer);
     void deletePackage(Long packageId, User photographer);
+
+    BookingResponse adminForceCancel(Long bookingId, User admin, AdminForceCancelRequest req);
 }

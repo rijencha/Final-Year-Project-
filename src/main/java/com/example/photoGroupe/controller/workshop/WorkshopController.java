@@ -29,11 +29,20 @@ public class WorkshopController {
 
     // ─── Public Browsing ──────────────────────────────────────────────────
 
+//    @GetMapping
+//    public ResponseEntity<Page<WorkshopSummaryResponse>> list(
+//            @PageableDefault(size = 12, sort = "workshopDate") Pageable pageable
+//    ) {
+//        return ResponseEntity.ok(workshopService.listAvailable(pageable));
+//    }
+
     @GetMapping
     public ResponseEntity<Page<WorkshopSummaryResponse>> list(
-            @PageableDefault(size = 12, sort = "workshopDate") Pageable pageable
+            @PageableDefault(size = 12, sort = "workshopDate") Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
-        return ResponseEntity.ok(workshopService.listAvailable(pageable));
+        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        return ResponseEntity.ok(workshopService.listAvailable(pageable, currentUserId));
     }
 
     @GetMapping("/{id}")

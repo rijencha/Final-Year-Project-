@@ -67,7 +67,7 @@ public class UserRestrictionService {
         if (isRestricted(targetId, actorId, type)) {
             // Deliberately generic — see RestrictedActionException javadoc.
             throw new com.example.photoGroupe.exception.RestrictedActionException(
-                    "This action is not available right now.");
+                    "This action is not available right now. You might have been restricted by this Photographer");
         }
     }
 

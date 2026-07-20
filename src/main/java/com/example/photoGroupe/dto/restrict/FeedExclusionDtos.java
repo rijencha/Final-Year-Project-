@@ -11,6 +11,7 @@ public class FeedExclusionDtos {
         private Long pinId;
         private Long excludedUserId;
         private Long categoryId;
+        private Long workshopId;
 
         public FeedExclusionScope getScope()          { return scope; }
         public void setScope(FeedExclusionScope scope) { this.scope = scope; }
@@ -20,6 +21,8 @@ public class FeedExclusionDtos {
         public void setExcludedUserId(Long id)         { this.excludedUserId = id; }
         public Long getCategoryId()                    { return categoryId; }
         public void setCategoryId(Long categoryId)     { this.categoryId = categoryId; }
+        public Long getWorkshopId()                    { return workshopId; }
+        public void setWorkshopId(Long workshopId)     { this.workshopId = workshopId; }
     }
 
     public static class FeedExclusionResponse {
@@ -44,6 +47,12 @@ public class FeedExclusionDtos {
         private final String categoryName;
         private final String categoryCoverImage;
 
+        // WORKSHOP scope
+        private final Long workshopId;
+        private final String workshopTitle;
+        private final String workshopCoverImage;
+        private final String workshopPhotographerName;
+
         private final LocalDateTime createdAt;
 
         public FeedExclusionResponse(Long id, FeedExclusionScope scope,
@@ -52,6 +61,8 @@ public class FeedExclusionDtos {
                                      Long excludedUserId, String excludedUsername,
                                      String excludedFullName, String excludedProfilePicture,
                                      Long categoryId, String categoryName, String categoryCoverImage,
+                                     Long workshopId, String workshopTitle, String workshopCoverImage,
+                                     String workshopPhotographerName,
                                      LocalDateTime createdAt) {
             this.id = id;
             this.scope = scope;
@@ -67,6 +78,10 @@ public class FeedExclusionDtos {
             this.categoryId = categoryId;
             this.categoryName = categoryName;
             this.categoryCoverImage = categoryCoverImage;
+            this.workshopId = workshopId;
+            this.workshopTitle = workshopTitle;
+            this.workshopCoverImage = workshopCoverImage;
+            this.workshopPhotographerName = workshopPhotographerName;
             this.createdAt = createdAt;
         }
 
@@ -87,6 +102,11 @@ public class FeedExclusionDtos {
         public Long getCategoryId()                 { return categoryId; }
         public String getCategoryName()             { return categoryName; }
         public String getCategoryCoverImage()       { return categoryCoverImage; }
+
+        public Long getWorkshopId()                 { return workshopId; }
+        public String getWorkshopTitle()             { return workshopTitle; }
+        public String getWorkshopCoverImage()       { return workshopCoverImage; }
+        public String getWorkshopPhotographerName() { return workshopPhotographerName; }
 
         public LocalDateTime getCreatedAt()         { return createdAt; }
     }

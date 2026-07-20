@@ -31,4 +31,9 @@ public interface FeedExclusionRepository extends JpaRepository<FeedExclusion, Lo
 
     @Query("select f.category.id from FeedExclusion f where f.owner.id = :ownerId and f.scope = 'CATEGORY'")
     List<Long> findExcludedCategoryIds(@Param("ownerId") Long ownerId);
+
+    Optional<FeedExclusion> findByOwnerIdAndScopeAndWorkshopId(Long ownerId, FeedExclusionScope scope, Long workshopId);
+
+    @Query("SELECT f.workshop.id FROM FeedExclusion f WHERE f.owner.id = :ownerId AND f.scope = 'WORKSHOP'")
+    List<Long> findExcludedWorkshopIds(@Param("ownerId") Long ownerId);
 }
