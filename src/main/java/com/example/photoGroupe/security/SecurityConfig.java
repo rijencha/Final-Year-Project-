@@ -63,6 +63,9 @@ public class SecurityConfig {
                         .requestMatchers("/login/oauth2/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/api/search/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/pins/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/categories/**").permitAll()
+
 
                         // ── Role-based endpoints (MIDDLE) ─────────────────────────
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")

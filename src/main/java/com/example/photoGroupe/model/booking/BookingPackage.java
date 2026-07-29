@@ -24,6 +24,9 @@ public class BookingPackage {
     private Booking booking;
 
     @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
     private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
@@ -150,4 +153,12 @@ public class BookingPackage {
     public PhotographerPackage getTemplate()        { return template; }
 
     public void setTemplate(PhotographerPackage t)  { this.template = t; }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 }
