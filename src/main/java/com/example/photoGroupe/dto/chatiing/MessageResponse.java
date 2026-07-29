@@ -26,6 +26,19 @@ public class MessageResponse {
     private String sharedPinImageUrl;
     private String sharedPinTitle;
 
+    private Long sharedWorkshopId;
+    private String sharedWorkshopTitle;
+    private String sharedWorkshopCoverImage;
+
+    private Long sharedAlbumId;
+    private String sharedAlbumTitle;
+    private String sharedAlbumCoverImage;
+
+    private Long sharedProfileId;
+    private String sharedProfileUsername;
+    private String sharedProfileName;
+    private String sharedProfilePicture;
+
     private String imageUrl;
     private String imageTitle;
 

@@ -305,11 +305,18 @@ public class PinController {
         return ResponseEntity.ok(Map.of("shareCount", pinsService.getShareCount(pinId)));
     }
 
+//    @GetMapping("/top-pins")
+//    public ResponseEntity<List<PinResponse>> getTopPins(
+//            @RequestParam(defaultValue = "10") int limit,
+//            @AuthenticationPrincipal CustomUserDetails userDetails) {
+//        return ResponseEntity.ok(pinsService.getTopPins(limit, userDetails.getUser().getId()));
+//    }
     @GetMapping("/top-pins")
     public ResponseEntity<List<PinResponse>> getTopPins(
             @RequestParam(defaultValue = "10") int limit,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(pinsService.getTopPins(limit, userDetails.getUser().getId()));
+        Long currentUserId = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(pinsService.getTopPins(limit, currentUserId));
     }
 
     @GetMapping("/{userId}/top-pins")

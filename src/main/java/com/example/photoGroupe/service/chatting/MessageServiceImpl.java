@@ -11,12 +11,16 @@ import com.example.photoGroupe.model.User;
 import com.example.photoGroupe.model.chatting.Conversation;
 import com.example.photoGroupe.model.chatting.Message;
 import com.example.photoGroupe.model.chatting.MessageType;
+import com.example.photoGroupe.model.pins.Album;
 import com.example.photoGroupe.model.restrict.RestrictionType;
+import com.example.photoGroupe.model.workshop.Workshop;
 import com.example.photoGroupe.repo.PinRepository;
 import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.chatting.ConversationRepository;
 import com.example.photoGroupe.repo.chatting.MessageRepository;
 import com.example.photoGroupe.repo.payment.BookingPackageRepository;
+import com.example.photoGroupe.repo.pins.AlbumRepository;
+import com.example.photoGroupe.repo.workshop.WorkshopRepository;
 import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -44,6 +48,8 @@ public class MessageServiceImpl implements  MessageService{
     private final Cloudinary  cloudinary;
     private final BookingPackageRepository packageRepository;
     private final UserRestrictionService restrictionService;
+    private final WorkshopRepository workshopRepository;
+    private final AlbumRepository albumRepository; // com.example.photoGroupe.repo.pins.AlbumRepository
 
     @Override
     @Transactional
@@ -70,6 +76,21 @@ public class MessageServiceImpl implements  MessageService{
                     .orElseThrow(() -> new RuntimeException("Pin not found"));
             message.setSharedPin(pin);
             message.setType(MessageType.PIN_SHARE);
+        } else if (request.getSharedWorkshopId() != null) {
+            Workshop w = workshopRepository.findById(request.getSharedWorkshopId())
+                    .orElseThrow(() -> new RuntimeException("Workshop not found"));
+            message.setSharedWorkshop(w);
+            message.setType(MessageType.WORKSHOP_SHARE);
+        } else if (request.getSharedAlbumId() != null) {
+            Album album = albumRepository.findById(request.getSharedAlbumId())
+                    .orElseThrow(() -> new RuntimeException("Album not found"));
+            message.setSharedAlbum(album);
+            message.setType(MessageType.ALBUM_SHARE);
+        } else if (request.getSharedProfileId() != null) {
+            User profile = userRepository.findById(request.getSharedProfileId())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            message.setSharedProfile(profile);
+            message.setType(MessageType.PROFILE_SHARE);
         }
         message.setBookingPackageId(request.getBookingPackageId()); // ← add this line
         messageRepository.save(message);
@@ -243,6 +264,7 @@ public class MessageServiceImpl implements  MessageService{
                             PackageResponse.builder()
                                     .id(pkg.getId())
                                     .bookingId(pkg.getBooking().getId())
+                                    .name(pkg.getName())
                                     .price(pkg.getPrice())
                                     .counterPrice(pkg.getCounterPrice())
                                     .packageType(pkg.getPackageType())
@@ -260,6 +282,28 @@ public class MessageServiceImpl implements  MessageService{
             builder.sharedPinId(message.getSharedPin().getId())
                     .sharedPinImageUrl(message.getSharedPin().getImageUrl())
                     .sharedPinTitle(message.getSharedPin().getTitle());
+        }
+
+        if (message.getSharedWorkshop() != null) {
+            Workshop w = message.getSharedWorkshop();
+            builder.sharedWorkshopId(w.getId())
+                    .sharedWorkshopTitle(w.getTitle())
+                    .sharedWorkshopCoverImage(w.getCoverImage());
+        }
+
+        if (message.getSharedAlbum() != null) {
+            Album a = message.getSharedAlbum();
+            builder.sharedAlbumId(a.getId())
+                    .sharedAlbumTitle(a.getTitle())
+                    .sharedAlbumCoverImage(a.getCoverImageUrl());
+        }
+
+        if (message.getSharedProfile() != null) {
+            User p = message.getSharedProfile();
+            builder.sharedProfileId(p.getId())
+                    .sharedProfileUsername(p.getActualUsername())
+                    .sharedProfileName(p.getFullName())
+                    .sharedProfilePicture(p.getProfilePicture());
         }
 
         return builder.build();

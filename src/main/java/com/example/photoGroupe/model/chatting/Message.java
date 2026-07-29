@@ -2,6 +2,8 @@ package com.example.photoGroupe.model.chatting;
 
 import com.example.photoGroupe.model.Pin;
 import com.example.photoGroupe.model.User;
+import com.example.photoGroupe.model.pins.Album;
+import com.example.photoGroupe.model.workshop.Workshop;
 import jakarta.persistence.*;
 
 import java.awt.*;
@@ -33,6 +35,18 @@ public class Message {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_pin_id")
     private Pin sharedPin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shared_workshop_id")
+    private Workshop sharedWorkshop;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shared_album_id")
+    private Album sharedAlbum;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shared_profile_id")
+    private User sharedProfile;
 
     @Column(name = "image_url")
     private String imageUrl;
@@ -83,6 +97,15 @@ public class Message {
 
 
     public void setBookingPackageId(Long id)    { this.bookingPackageId = id; }
+
+    public Workshop getSharedWorkshop()      { return sharedWorkshop; }
+    public void setSharedWorkshop(Workshop w) { this.sharedWorkshop = w; }
+
+    public Album getSharedAlbum()            { return sharedAlbum; }
+    public void setSharedAlbum(Album a)      { this.sharedAlbum = a; }
+
+    public User getSharedProfile()           { return sharedProfile; }
+    public void setSharedProfile(User u)     { this.sharedProfile = u; }
 
     // Setters
     public void setConversation(Conversation c) { this.conversation = c; }

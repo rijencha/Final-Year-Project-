@@ -12,6 +12,7 @@ public class PackageResponse {
     private Long id;
     private Long bookingId;
     private BigDecimal price;
+    private String name;
     private PackageType packageType;
     private String description;
     private Integer deliveryDays;
@@ -107,5 +108,13 @@ public class PackageResponse {
 
     public void setCounterPrice(BigDecimal counterPrice) {
         this.counterPrice = counterPrice;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }

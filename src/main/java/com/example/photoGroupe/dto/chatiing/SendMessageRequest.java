@@ -10,4 +10,7 @@ public class SendMessageRequest {
     private Long sharedPinId;      // optional: pin to share
     private MessageType type = MessageType.TEXT;
     private Long bookingPackageId;
+    private Long sharedWorkshopId;
+    private Long sharedAlbumId;
+    private Long sharedProfileId;
 }
