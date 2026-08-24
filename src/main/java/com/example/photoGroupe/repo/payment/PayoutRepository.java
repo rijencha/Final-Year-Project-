@@ -46,4 +46,14 @@ public interface PayoutRepository extends JpaRepository<Payout, Long> {
             "WHERE p.photographer.id = :photographerId AND p.status = 'RELEASED'")
     BigDecimal sumReleasedAmount(@Param("photographerId") Long photographerId);
 
+    @Query("SELECT COALESCE(SUM(p.photographerAmount), 0) FROM Payout p " +
+            "WHERE p.photographer.id = :photographerId AND p.status = 'PENDING'")
+    BigDecimal sumPendingAmount(@Param("photographerId") Long photographerId);
+
+    @Query("SELECT COALESCE(SUM(p.photographerAmount), 0) FROM Payout p " +
+            "WHERE p.photographer.id = :photographerId AND p.sourceType = :sourceType " +
+            "AND p.status IN ('PENDING', 'RELEASED')")
+    BigDecimal sumAmountBySourceType(@Param("photographerId") Long photographerId,
+                                     @Param("sourceType") String sourceType);
+
 }

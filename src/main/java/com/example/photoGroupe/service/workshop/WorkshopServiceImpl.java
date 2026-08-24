@@ -13,6 +13,7 @@ import com.example.photoGroupe.repo.UserRepository;
 import com.example.photoGroupe.repo.workshop.WorkshopParticipantRepository;
 import com.example.photoGroupe.repo.workshop.WorkshopRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.email.EmailService;
 import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.service.restrict.FeedExclusionService;
 import com.example.photoGroupe.service.share.ShareService;
@@ -39,6 +40,7 @@ public class WorkshopServiceImpl implements WorkshopService {
     private final CloudinaryService cloudinaryService; // add this
     private final FeedExclusionService feedExclusionService;
     private final ShareService shareService;
+    private final EmailService emailService;
 
 
     // ─── Photographer: CRUD ───────────────────────────────────────────────
@@ -244,6 +246,9 @@ public class WorkshopServiceImpl implements WorkshopService {
             throw e;
         }
 
+        emailService.sendWorkshopRegistrationEmail(
+                w.getPhotographer().getEmail(), participant.getFullName(), w.getTitle(), w.getId());
+
         return wp.getId();
     }
 
@@ -400,6 +405,13 @@ public class WorkshopServiceImpl implements WorkshopService {
         }
 
         return response;
+    }
+
+    @Override
+    public Double getTotalWorkshopEarnings(CustomUserDetails currentUser) {
+        Long photographerId = currentUser.getUser().getId();
+        Double sum = participantRepository.sumConfirmedRevenueByPhotographer(photographerId);
+        return sum != null ? sum : 0.0;
     }
 
     private WorkshopSummaryResponse toSummary(Workshop w) {

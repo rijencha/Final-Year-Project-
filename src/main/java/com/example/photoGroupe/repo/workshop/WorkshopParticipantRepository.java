@@ -3,6 +3,8 @@ package com.example.photoGroupe.repo.workshop;
 import com.example.photoGroupe.model.workshop.WorkshopParticipant;
 import com.example.photoGroupe.model.workshop.WorkshopParticipantStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,4 +25,13 @@ public interface WorkshopParticipantRepository extends JpaRepository<WorkshopPar
     List<WorkshopParticipant> findByWorkshopIdAndStatus(Long workshopId, WorkshopParticipantStatus status);
 
     List<WorkshopParticipant> findByStatusAndRegisteredAtBefore(WorkshopParticipantStatus status, LocalDateTime cutoff);
+
+    @Query("""
+    SELECT COALESCE(SUM(w.price), 0)
+    FROM WorkshopParticipant wp
+    JOIN wp.workshop w
+    WHERE w.photographer.id = :photographerId
+    AND wp.status = com.example.photoGroupe.model.workshop.WorkshopParticipantStatus.CONFIRMED
+    """)
+    Double sumConfirmedRevenueByPhotographer(@Param("photographerId") Long photographerId);
 }

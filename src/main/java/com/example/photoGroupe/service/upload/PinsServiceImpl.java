@@ -20,6 +20,7 @@ import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -188,30 +189,67 @@ public class PinsServiceImpl implements PinsService{
         return toResponse(pin, currentUserId);
     }
 
+//    @Override
+//    @Transactional(readOnly = true)
+//    public Page<PinResponse> getFeed(int page, int size, Long currentUserId, Set<Long> alreadyShownIds) {
+//        var exclusions = feedExclusionService.getExclusionSet(currentUserId);
+//        Map<Long, Double> weights = categoryPreferenceService.getWeightMap(currentUserId);
+//
+//        int poolSize = Math.min(500, size * 8 + exclusions.pinIds().size() + alreadyShownIds.size() + 20);
+//
+//        List<Pin> pool = pinRepository
+//                .findFeedWithUserAndCategory(PageRequest.of(0, poolSize))
+//                .getContent().stream()
+//                .filter(p -> !exclusions.excludes(p))
+//                .filter(p -> !alreadyShownIds.contains(p.getId()))   // exclude what's already been served
+//                .toList();
+//
+//        List<Pin> sampled = weightedSample(pool, weights, size);
+//
+//        List<PinResponse> content = sampled.stream()
+//                .map(p -> toResponse(p, currentUserId))
+//                .toList();
+//
+//        // content.size() < size (or 0) means we've run out — frontend should stop scrolling
+//        return new org.springframework.data.domain.PageImpl<>(
+//                content, PageRequest.of(page, size), content.size());
+//    }
     @Override
     @Transactional(readOnly = true)
     public Page<PinResponse> getFeed(int page, int size, Long currentUserId, Set<Long> alreadyShownIds) {
         var exclusions = feedExclusionService.getExclusionSet(currentUserId);
         Map<Long, Double> weights = categoryPreferenceService.getWeightMap(currentUserId);
 
-        int poolSize = Math.min(500, size * 8 + exclusions.pinIds().size() + alreadyShownIds.size() + 20);
+        int poolSize = Math.min(500, size * 8 + exclusions.pinIds().size() + 50);
 
-        List<Pin> pool = pinRepository
+        List<Pin> basePool = pinRepository
                 .findFeedWithUserAndCategory(PageRequest.of(0, poolSize))
                 .getContent().stream()
                 .filter(p -> !exclusions.excludes(p))
-                .filter(p -> !alreadyShownIds.contains(p.getId()))   // exclude what's already been served
                 .toList();
 
-        List<Pin> sampled = weightedSample(pool, weights, size);
+        List<Pin> freshPool = basePool.stream()
+                .filter(p -> !alreadyShownIds.contains(p.getId()))
+                .toList();
+
+        List<Pin> sampled = new ArrayList<>(weightedSample(freshPool, weights, size));
+
+        // Backfill with recycled (already-seen) pins so it always returns a full page,
+        // like Pinterest/IG reshuffling once you've seen everything fresh.
+        if (sampled.size() < size && !basePool.isEmpty()) {
+            List<Pin> recyclePool = new ArrayList<>(basePool);
+            Collections.shuffle(recyclePool);
+            for (Pin p : recyclePool) {
+                if (sampled.size() >= size) break;
+                if (!sampled.contains(p)) sampled.add(p);
+            }
+        }
 
         List<PinResponse> content = sampled.stream()
                 .map(p -> toResponse(p, currentUserId))
                 .toList();
 
-        // content.size() < size (or 0) means we've run out — frontend should stop scrolling
-        return new org.springframework.data.domain.PageImpl<>(
-                content, PageRequest.of(page, size), content.size());
+        return new PageImpl<>(content, PageRequest.of(page, size), content.size());
     }
 
     @Override

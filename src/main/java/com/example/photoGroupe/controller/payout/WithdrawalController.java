@@ -1,8 +1,10 @@
 package com.example.photoGroupe.controller.payout;
 
 import com.example.photoGroupe.dto.payout.*;
+import com.example.photoGroupe.dto.photographer.PhotographerRevenueResponse;
 import com.example.photoGroupe.model.payout.WithdrawalStatus;
 import com.example.photoGroupe.security.CustomUserDetails;
+import com.example.photoGroupe.service.payment.RevenueService;
 import com.example.photoGroupe.service.payout.WithdrawalService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +23,7 @@ import java.util.List;
 public class WithdrawalController {
 
     private final WithdrawalService withdrawalService;
+    private final RevenueService  revenueService;
 
     @GetMapping("/balance")
     public ResponseEntity<BalanceResponse> getBalance(@AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -55,6 +58,12 @@ public class WithdrawalController {
     public ResponseEntity<Page<WithdrawalResponse>> myWithdrawals(@AuthenticationPrincipal CustomUserDetails currentUser,
                                                                   Pageable pageable) {
         return ResponseEntity.ok(withdrawalService.getMyWithdrawals(currentUser.getUser(), pageable));
+    }
+
+    @GetMapping("/revenue")
+    public ResponseEntity<PhotographerRevenueResponse> getRevenue(
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(revenueService.getRevenue(currentUser.getUser()));
     }
 
     // ── Admin ────────────────────────────────────────────────────────────

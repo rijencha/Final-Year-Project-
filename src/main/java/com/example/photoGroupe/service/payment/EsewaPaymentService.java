@@ -22,6 +22,7 @@ import com.example.photoGroupe.repo.workshop.WorkshopParticipantRepository;
 import com.example.photoGroupe.repo.workshop.WorkshopRepository;
 import com.example.photoGroupe.security.CustomUserDetails;
 import com.example.photoGroupe.service.ads.AdPricingConfig;
+import com.example.photoGroupe.service.email.EmailService;
 import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.util.EsewaSignatureUtil;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +56,7 @@ public class EsewaPaymentService {
     private final BannerAdRepository bannerAdRepository;
     private final PhotographerBoostRepository boostRepository;
     private final AdPricingConfig adPricingConfig;
+    private final EmailService emailService; // add to constructor field list
 
     private static final BigDecimal WORKSHOP_COMMISSION_RATE = new BigDecimal("0.12"); // 12%
     private static final long PAYMENT_GRACE_PERIOD_MINUTES = 10;
@@ -430,6 +432,9 @@ public class EsewaPaymentService {
         payout.setPhotographerAmount(photographerAmount);
         payout.setStatus("PENDING");
         payoutRepository.save(payout);
+
+        emailService.sendWorkshopPayoutEmail(
+                w.getPhotographer().getEmail(), w.getTitle(), photographerAmount.toPlainString());
 
         notificationService.create(
                 w.getPhotographer(),

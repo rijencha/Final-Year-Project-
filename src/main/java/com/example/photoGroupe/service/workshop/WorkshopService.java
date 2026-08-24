@@ -44,6 +44,6 @@ public interface WorkshopService {
 
     ShareResponse shareWorkshop(Long workshopId, CustomUserDetails currentUser);
 
-
+    Double getTotalWorkshopEarnings(CustomUserDetails currentUser);
 
 }

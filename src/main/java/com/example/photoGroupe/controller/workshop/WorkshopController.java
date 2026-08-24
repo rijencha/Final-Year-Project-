@@ -134,4 +134,9 @@ public class WorkshopController {
         return ResponseEntity.ok(workshopService.getMyRegistration(id, currentUser));
     }
 
+    @GetMapping("/earnings")
+    public ResponseEntity<Double> getWorkshopEarnings(@AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ResponseEntity.ok(workshopService.getTotalWorkshopEarnings(currentUser));
+    }
+
 }

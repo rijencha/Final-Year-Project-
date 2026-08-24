@@ -29,4 +29,8 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     Page<WithdrawalRequest> findAllByOrderByRequestedAtDesc(Pageable pageable);
 
     Page<WithdrawalRequest> findByStatusOrderByRequestedAtDesc(WithdrawalStatus status, Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(w.amount), 0) FROM WithdrawalRequest w " +
+            "WHERE w.photographer.id = :photographerId AND w.status = 'COMPLETED'")
+    BigDecimal sumCompletedAmount(@Param("photographerId") Long photographerId);
 }

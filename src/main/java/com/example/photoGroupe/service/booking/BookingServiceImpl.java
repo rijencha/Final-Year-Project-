@@ -18,6 +18,7 @@ import com.example.photoGroupe.repo.payment.BookingPackageRepository;
 import com.example.photoGroupe.repo.payment.PaymentRepository;
 import com.example.photoGroupe.repo.payment.PayoutRepository;
 import com.example.photoGroupe.service.chatting.MessageServiceImpl;
+import com.example.photoGroupe.service.email.EmailService;
 import com.example.photoGroupe.service.notification.NotificationService;
 import com.example.photoGroupe.service.restrict.UserRestrictionService;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class BookingServiceImpl implements BookingService {
     private final PhotographerPackageService photographerPackageService;
     private final PaymentRepository  paymentRepository;
     private final UserRestrictionService userRestrictionService; // add to constructor
+    private final EmailService  emailService;
 
     // ── Client: create booking ───────────────────────────────────────────
 
@@ -98,6 +100,9 @@ public class BookingServiceImpl implements BookingService {
                 client.getFullName() + " requested a booking for \"" + req.getEventTitle() + "\"",
                 "/dashboard/bookings/" + saved.getId()
         );
+
+        emailService.sendBookingRequestEmail(
+                photographer.getEmail(), client.getFullName(), req.getEventTitle(), saved.getId());
 
         return new BookingResponse(saved);
     }
@@ -187,6 +192,8 @@ public class BookingServiceImpl implements BookingService {
                 photographer.getFullName() + " confirmed your booking for \"" + booking.getEventTitle() + "\"",
                 "/my-bookings/" + bookingId
         );
+        emailService.sendBookingConfirmedEmail(
+                booking.getClient().getEmail(), photographer.getFullName(), booking.getEventTitle(), bookingId);
 
         return new BookingResponse(booking);
     }
@@ -210,6 +217,8 @@ public class BookingServiceImpl implements BookingService {
                 photographer.getFullName() + " declined your booking for \"" + booking.getEventTitle() + "\"",
                 "/my-bookings/" + bookingId
         );
+        emailService.sendBookingRejectedEmail(
+                booking.getClient().getEmail(), photographer.getFullName(), booking.getEventTitle(), reason);
 
         return new BookingResponse(booking);
     }
@@ -349,6 +358,8 @@ public class BookingServiceImpl implements BookingService {
                         + " (platform fee: NPR " + commission + ")",
                 "/dashboard/earnings"
         );
+        emailService.sendEscrowReleasedEmail(
+                booking.getPhotographer().getEmail(), booking.getEventTitle(), photographerPayout.toPlainString());
 
         return new BookingResponse(booking);
     }
